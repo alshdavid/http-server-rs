@@ -292,7 +292,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "http-server-rs"
+name = "http-server"
 version = "0.1.0"
 dependencies = [
  "clap",

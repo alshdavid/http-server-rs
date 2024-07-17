@@ -1,0 +1,82 @@
+name: Release
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+on: 
+  push:
+    branches:
+      - "main"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        config:
+          - name: 🐥 Linux AMD64
+            os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - name: 🐥 Linux ARM64
+            os: linux
+            arch: arm64
+            runner: ubuntu-latest
+          - name: 🍎 MacOS AMD64
+            os: macos
+            arch: amd64
+            runner: macos-13
+          - name: 🍎 MacOS ARM64
+            os: macos
+            arch: arm64
+            runner: macos-14
+          - name: 🟦 Windows AMD64
+            os: windows
+            arch: amd64
+            runner: windows-latest
+          - name: 🟦 Windows ARM64
+            os: windows
+            arch: arm64
+            runner: windows-latest
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-just
+      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/build-bin
+        with: 
+          os: "${{ matrix.config.os }}"
+          arch: "${{ matrix.config.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: http-server-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          path: ${{ github.workspace }}/artifacts/**/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-github-release:
+    name: "🔄 Publish Github Release"
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+      - name: Publish` Github Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
+          echo "Tag: ${TAG}"
+
+          gh release create $TAG  --draft --notes "Automatically built binaries"
+          gh release edit $TAG --title "🚀 Latest"
+
+          gh release upload $TAG http-server-linux-amd64/http-server-linux-amd64.tar.gz
+          gh release upload $TAG http-server-linux-arm64/http-server-linux-arm64.tar.gz
+          gh release upload $TAG http-server-macos-amd64/http-server-macos-amd64.tar.gz
+          gh release upload $TAG http-server-macos-arm64/http-server-macos-arm64.tar.gz
+          gh release upload $TAG http-server-windows-amd64/http-server-windows-amd64.tar.gz
+          gh release upload $TAG http-server-windows-arm64/http-server-windows-arm64.tar.gz
+          
+          gh release edit $TAG --draft=false

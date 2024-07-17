@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::env;
-use std::hash::Hash;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -28,8 +27,7 @@ impl Config {
       return Err("Unable to get cwd".to_string());
     };
 
-  dbg!(&command);
-
+    dbg!(&command);
 
     let domain = format!("{}:{}", command.address, command.port);
 
@@ -55,7 +53,10 @@ impl Config {
     let mut headers = HashMap::<String, Vec<String>>::new();
 
     if command.cors {
-      headers.insert("Access-Control-Allow-Origin".to_string(), vec!["*".to_string()]);
+      headers.insert(
+        "Access-Control-Allow-Origin".to_string(),
+        vec!["*".to_string()],
+      );
     }
 
     for header in command.headers {

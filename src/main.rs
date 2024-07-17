@@ -2,12 +2,10 @@ mod cli;
 mod config;
 
 use std::convert::Infallible;
-use std::future::Future;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
 use std::fs;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -87,7 +85,8 @@ fn server(
           let files = fs::read_dir(&file_path).unwrap();
           let mut output = String::new();
           for file in files {
-            let rel_path = pathdiff::diff_paths(file.unwrap().path(), &config.serve_dir_abs).unwrap();
+            let rel_path =
+              pathdiff::diff_paths(file.unwrap().path(), &config.serve_dir_abs).unwrap();
             let rel_path_str = rel_path.to_str().unwrap();
 
             output += "<li><a href=\"/";

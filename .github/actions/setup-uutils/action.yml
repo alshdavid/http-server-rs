@@ -1,0 +1,24 @@
+name: 'alshdavid/setup-uutils'
+description: "Install Uutils"
+
+inputs:
+  version:
+    description: 'Uutils version'
+    default: "0.0.26"
+
+runs:
+  using: 'composite'
+  steps:
+    - name: "Install Uutils" 
+      if: ${{ runner.os != 'Windows' }}
+      shell: bash
+      env:
+        JUST_VERSION: ${{ inputs.version }}
+      run: "bash .github/actions/setup-uutils/install.bash"
+
+    - name: "Install Uutils" 
+      if: ${{ runner.os == 'Windows' }}
+      shell: powershell
+      env:
+        JUST_VERSION: ${{ inputs.version }}
+      run: . .github/actions/setup-uutils/install.ps1
