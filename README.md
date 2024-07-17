@@ -1,11 +1,8 @@
-# HTTP Server
+# http-server: a simple static HTTP server 🚀🦀
 
-Rewrite of the popular npm package [http-server](https://github.com/http-party/http-server/tree/master) in Rust with some extras included
+Rewrite of the popular npm package [http-server](https://github.com/http-party/http-server/tree/master) in Rust with some extras included.
 
 `http-server` is a simple, zero-configuration command-line static HTTP server. It is powerful enough for production usage, but it's simple and hackable enough to be used for testing, local development and learning.
-
-
-## Installation
 
 ## Usage
 
@@ -33,3 +30,41 @@ Options:
   -Q, --quiet                    Don't print any logs to terminal
   -h, --help                     Print help
 ```
+
+## Installation
+
+### MacOS & Linux
+
+#### Install & Update Script
+
+This will prompt you for the install path, run it again to update the version
+
+```shell
+curl -s "https://raw.githubusercontent.com/alshdavid/http-server-rs/main/scripts/install.sh" | sh
+```
+
+#### Manual
+
+Download the binary from the [latest GitHub release](https://github.com/alshdavid-labs/alshx/releases/latest) and add it to your `PATH`
+
+```shell
+# Linux AMD64
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+
+# Linux ARM64
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/linux-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+
+# MacOS ARM64 (Apple Silicon)
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+
+# MacOS AMD64 (Intel)
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/macos-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+
+# Add to PATH if not already there:
+echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
+echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.bashrc
+```
+
+### Windows
+
+Download the binary from the [latest GitHub release](https://github.com/alshdavid-labs/alshx/releases/latest) and add it to your `PATH`
