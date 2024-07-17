@@ -46,7 +46,6 @@ esac
 
 echo Installing to: $INSTALL_PATH
 
-exit 0
 if ! [ -d "$INSTALL_PATH" ]; then
   echo "  WARN: Install path does not exist, creating"
   mkdir -p $INSTALL_PATH
