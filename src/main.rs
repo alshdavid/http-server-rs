@@ -123,7 +123,14 @@ fn server(
 
         // Read file
         // TODO not sure why tokio file read doesn't work here
-        let file = fs::read(&file_path).unwrap();
+        let Ok(file) = fs::read(&file_path) else {
+          return Ok(
+            res
+              .status(500)
+              .body(Full::new(Bytes::from("Unable to read file")))
+              .unwrap(),
+          );
+        };
 
         if !config.quiet {
           println!("  [200] {}", req.uri());
