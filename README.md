@@ -12,6 +12,9 @@ http-server
 
 # Arguments
 http-server --no-cache --cors ./public
+
+# Custom Headers
+http-server -H Cross-Origin-Opener-Policy:same-origin
 ```
 
 ```
@@ -23,8 +26,8 @@ Arguments:
 Options:
   -a, --address <ADDRESS>        [default: 0.0.0.0]
   -p, --port <PORT>              [default: 8080]
-  -c, --cache-time <CACHE_TIME>  Set the cache control time [default: 3600]
-  -H, --header <HEADERS>         Add custom headers
+  -c, --cache-time <CACHE_TIME>  Cache control time [default: 3600]
+  -H, --header <HEADERS>         Custom headers (Format "key:value")
       --cors                     Enable CORS header
       --no-cache                 Disable cache control header
   -Q, --quiet                    Don't print any logs to terminal

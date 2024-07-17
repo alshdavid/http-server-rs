@@ -14,11 +14,11 @@ pub struct CliCommand {
   #[arg(short = 'p', long = "port", default_value = "8080")]
   pub port: usize,
 
-  /// Set the cache control time
+  /// Cache control time
   #[arg(short = 'c', long = "cache-time", default_value = "3600")]
   pub cache_time: usize,
 
-  /// Add custom headers
+  /// Custom headers (Format "key:value")
   #[arg(short = 'H', long = "header")]
   pub headers: Vec<String>,
 
