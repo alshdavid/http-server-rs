@@ -1,11 +1,7 @@
 use std::fs::Metadata;
 use std::os::windows::fs::MetadataExt;
 
-use chrono::DateTime;
-use chrono::Utc;
-use unix_mode;
-
-pub fn get_meta_mode(meta: &Metadata) -> String {
+pub fn get_meta_mode(_meta: &Metadata) -> String {
   "----------".to_string()
 }
 
