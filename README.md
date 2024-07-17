@@ -7,6 +7,36 @@ Rewrite of the popular npm package [http-server](https://github.com/http-party/h
 
 ## Installation
 
+### MacOS & Linux
+
+#### Install & Update Script
+
+This will prompt you for the install path, run it again to update the version
+
+```shell
+curl -s "https://raw.githubusercontent.com/alshdavid/http-server-rs/main/scripts/install.sh" | sh
+```
+
+#### Manual
+
+Download the binary from the [latest GitHub release](https://github.com/alshdavid-labs/alshx/releases/latest) and add it to your `PATH`
+
+```shell
+# Linux AMD64
+curl -L --url https://github.com/alshdavid/procmon/releases/latest/download/linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+
+# MacOS ARM64 (Apple Silicon)
+curl -L --url https://github.com/alshdavid/procmon/releases/latest/download/macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+
+# Add to PATH if not already there:
+echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
+echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.bashrc
+```
+
+### Windows
+
+Download the binary from the [latest GitHub release](https://github.com/alshdavid-labs/alshx/releases/latest) and add it to your `PATH`
+
 ## Usage
 
 ```bash
