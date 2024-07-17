@@ -14,12 +14,23 @@ pub struct CliCommand {
   #[arg(short = 'p', long = "port", default_value = "8080")]
   pub port: usize,
 
+  /// Set the cache control time
   #[arg(short = 'c', long = "cache-time", default_value = "3600")]
   pub cache_time: usize,
 
+  /// Add custom headers
   #[arg(short = 'H', long = "header")]
   pub headers: Vec<String>,
 
+  /// Enable CORS header
   #[arg(long = "cors")]
   pub cors: bool,
+
+  /// Disable cache control header
+  #[arg(long = "no-cache")]
+  pub no_cache: bool,
+
+  /// Don't print any logs to terminal
+  #[arg(short = 'Q', long = "quiet")]
+  pub quiet: bool,
 }

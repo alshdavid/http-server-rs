@@ -18,6 +18,7 @@ pub struct Config {
   pub domain: String,
   pub cache_time: usize,
   pub headers: HashMap<String, Vec<String>>,
+  pub quiet: bool,
 }
 
 impl Config {
@@ -26,8 +27,6 @@ impl Config {
     let Ok(cwd) = env::current_dir() else {
       return Err("Unable to get cwd".to_string());
     };
-
-    dbg!(&command);
 
     let domain = format!("{}:{}", command.address, command.port);
 
@@ -59,6 +58,18 @@ impl Config {
       );
     }
 
+    if command.cache_time == 0 || command.no_cache {
+      headers.insert(
+        "Cache-Control".to_string(),
+        vec![format!("no-cache, no-store, must-revalidate")],
+      );
+    } else {
+      headers.insert(
+        "Cache-Control".to_string(),
+        vec![format!("max-age={}", command.cache_time)],
+      );
+    }
+
     for header in command.headers {
       let Some((key, value)) = header.split_once(":") else {
         return Err("Unable to parse header".to_string());
@@ -77,6 +88,7 @@ impl Config {
       port: command.port,
       cache_time: command.cache_time,
       headers,
+      quiet: command.quiet,
     })
   }
 }

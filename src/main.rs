@@ -17,16 +17,15 @@ use hyper::Response;
 use hyper_util::rt::TokioIo;
 use mime_guess;
 use shared_string::SharedString;
-// use tokio::fs;
 use tokio::net::TcpListener;
 
 use crate::config::Config;
 
 fn main() -> Result<(), String> {
   let config = Arc::new(Config::from_cli()?);
-  dbg!(&config);
-
-  println!("Serving on http://{}", config.domain);
+  if !config.quiet {
+    println!("Serving on http://{}", config.domain);
+  }
 
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
@@ -98,6 +97,10 @@ fn server(
 
         // 404 if no file exists
         if !file_path.exists() {
+          if !config.quiet {
+            println!("  [404] {}", req.uri());
+          }
+
           return Ok(
             res
               .status(404)
@@ -106,17 +109,25 @@ fn server(
           );
         }
 
+        // Apply mime type
         if let Some(mime) = self::mime_guess::from_path(&file_path).first() {
           res = res.header("Content-Type", mime.to_string());
         }
 
+        // Apply custom headers
         for (key, values) in config.headers.iter() {
           for value in values.iter() {
             res = res.header(key, value);
           }
         }
 
+        // Read file
+        // TODO not sure why tokio file read doesn't work here
         let file = fs::read(&file_path).unwrap();
+
+        if !config.quiet {
+          println!("  [200] {}", req.uri());
+        }
 
         let resp = res.body(Full::new(Bytes::from(file))).unwrap();
         Ok(resp)
