@@ -23,7 +23,6 @@ use tokio::net::TcpListener;
 
 use crate::config::Config;
 
-
 fn main() -> Result<(), String> {
   let config = Arc::new(Config::from_cli()?);
   if !config.quiet {
@@ -71,12 +70,10 @@ fn server(
         let req_uri = req.uri().to_string();
 
         // Trim the leading "/" from the URI
-        let req_path = SharedString::from(req_uri.as_str())
-          .get(1..)
-          .unwrap();
+        let req_path = SharedString::from(req_uri.as_str()).get(1..).unwrap().to_string();
 
         // Guess the file path of the file to serve
-        let mut file_path = config.serve_dir_abs.join(req_path.to_string());
+        let mut file_path = config.serve_dir_abs.join(req_path.clone());
 
         // Try to serve index.html
         if file_path.is_dir() && file_path.join("index.html").exists() {
@@ -92,7 +89,7 @@ fn server(
 
         // Serve folder structure
         if file_path.is_dir() {
-          let output = render_directory_explorer(&config, &req_uri, &file_path).unwrap();
+          let output = render_directory_explorer(&config, &req_path, &file_path).unwrap();
           res = res.header("Content-Type", "text/html");
           return Ok(res.body(Full::new(Bytes::from(output))).unwrap());
         }
