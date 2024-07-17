@@ -3,7 +3,9 @@ mod config;
 
 use std::convert::Infallible;
 use std::fs;
+use std::fs::Permissions;
 use std::future::Future;
+use std::os::unix::fs::PermissionsExt;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -16,10 +18,16 @@ use hyper::Request;
 use hyper::Response;
 use hyper_util::rt::TokioIo;
 use mime_guess;
+use serde_json::json;
 use shared_string::SharedString;
 use tokio::net::TcpListener;
+use handlebars::Handlebars;
+use chrono::{DateTime, Utc}; 
+use unix_mode;
 
 use crate::config::Config;
+
+const DIR_PAGE: &str = include_str!("./html/dir.hbs");
 
 fn main() -> Result<(), String> {
   let config = Arc::new(Config::from_cli()?);
@@ -65,8 +73,10 @@ fn server(
       let mut res = Response::builder();
       let config = config.clone();
       async move {
+        let req_uri = req.uri().to_string();
+
         // Trim the leading "/" from the URI
-        let req_path = SharedString::from(req.uri().to_string().as_str())
+        let req_path = SharedString::from(req_uri.as_str())
           .get(1..)
           .unwrap();
 
@@ -78,21 +88,45 @@ fn server(
           file_path = file_path.join("index.html");
         }
 
+        // Apply custom headers
+        for (key, values) in config.headers.iter() {
+          for value in values.iter() {
+            res = res.header(key, value);
+          }
+        }
+
         // Serve folder structure
         if file_path.is_dir() {
-          res = res.header("Content-Type", "text/html");
-          let files = fs::read_dir(&file_path).unwrap();
-          let mut output = String::new();
-          for file in files {
-            let rel_path =
-              pathdiff::diff_paths(file.unwrap().path(), &config.serve_dir_abs).unwrap();
-            let rel_path_str = rel_path.to_str().unwrap();
+          let dir = fs::read_dir(&file_path).unwrap();
+          let mut files = Vec::<(String, String, String)>::new();
+          let mut folders = Vec::<(String, String, String)>::new();
+          
+          for item in dir {
+            let item = item.unwrap();
+            let meta = item.metadata().unwrap();
+            let meta_mode = self::unix_mode::to_string(meta.permissions().mode());
+            let last_modified: DateTime<Utc> =  meta.modified().unwrap().into();
 
-            output += "<li><a href=\"/";
-            output += &format!("{}\">/{}</a></li>", rel_path_str, rel_path_str);
+            let rel_path = pathdiff::diff_paths(item.path(), &config.serve_dir_abs).unwrap();
+            let rel_path_str = rel_path.to_str().unwrap();
+            if item.file_type().unwrap().is_dir() {
+              folders.push((format!("{}", meta_mode), format!("{}", last_modified.format("%d %b %Y %H:%M")), rel_path_str.to_string()));
+            } else {
+              files.push((format!("{}", meta_mode), format!("{}", last_modified.format("%d %b %Y %H:%M")), rel_path_str.to_string()));
+            };
           }
-          let resp = res.body(Full::new(Bytes::from(output))).unwrap();
-          return Ok(resp);
+
+          let handlebars = Handlebars::new();
+          let output = handlebars.render_template(DIR_PAGE, &json!({
+            "path": req_uri.clone(),
+            "files": files,
+            "folders": folders,
+            "address": config.address.clone(),
+            "port": config.port.clone(),
+          })).unwrap();
+          
+          res = res.header("Content-Type", "text/html");
+          return Ok(res.body(Full::new(Bytes::from(output))).unwrap());
         }
 
         // 404 if no file exists
@@ -112,13 +146,6 @@ fn server(
         // Apply mime type
         if let Some(mime) = self::mime_guess::from_path(&file_path).first() {
           res = res.header("Content-Type", mime.to_string());
-        }
-
-        // Apply custom headers
-        for (key, values) in config.headers.iter() {
-          for value in values.iter() {
-            res = res.header(key, value);
-          }
         }
 
         // Read file

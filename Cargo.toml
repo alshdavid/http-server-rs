@@ -14,6 +14,11 @@ hyper = { version = "*", features = ["full"] }
 http-body-util = "*"
 hyper-util = { version = "*", features = ["full"] }
 num_cpus = "*"
+handlebars = "*"
+serde = "*"
+serde_json = "*"
+chrono = "*"
+unix_mode = "*"
 
 [profile.release]
 opt-level = 3

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title></title>
+
+  <style>
+    .icon {
+      display: block;
+      height: 16px;
+      width: 16px;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: contain;
+      margin-right: 12px;
+    }
+
+    .icon.file {
+      background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAeJJREFUeNp8UrtOG1EQPfsyXiyzBguIJSyChZBBEFCKpKHLo6egpErNn8CHgH8gkZIiTSIXLhJAWCgkoMgRMSiRBSK29z4y9+I1d/HCrFb3MTPnnjkzlpQSynY+fP70fGF2gQuByCz6lfdd9Uurfvrrjes6762eb3tzQ69uFJwPsqOPC+MBEmxxphi4tlU5OGmsOzaBWLc+O9oIIVhScidkyGZ8vH62nHtSKlaI4cse6TjAfSaFBBcco0EWqyvzubmpyQrj/FXk75cQaSEMeMXU8xykPA/Hjd/6/LRcyjEpt2i7HAe4A2TeLZWKUOJaVLxj27j813EHGKCXaAJExu/4BOdiAED08riQD2riOrexyRoYc3CvsAbLGAAjZga7vgZG23WMCdBvoxKJc36TRBlMiaa2JByjNqqD8qkYc1pjDK7abey+/YhrWlfKswhpiCR96aEU9o5+QE3g2ovVWDm2Sc22bBQm8vrVpbkS9r+doPr1EOWZaQ0yFoxg2PcREosEAI4uvZhJpzFMP+cSXRbq+043RManez+tNWKMI6GN0g0Z04HFR+NoNC/0yx717efZOSbzY3AcR4Op2AGA5p/W31r9e0vNgSrh9OwCrpeCkqvZuqTybnpRqx/r2CjvvwADAJC/7lzAzQmwAAAAAElFTkSuQmCC")
+    }
+
+    .icon.folder {
+      background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAWBJREFUeNqEUj1LxEAQnd1MVA4lyIEWx6UIKEGUExGsbC3tLfwJ/hT/g7VlCnubqxXBwg/Q4hQP/LhKL5nZuBsvuGfW5MGyuzM7jzdvVuR5DgYnZ+f99ai7Vt5t9K9unu4HLweI3qWYxI6PDosdy0fhcntxO44CcOBzPA7mfEyuHwf7ntQk4jcnywOxIlfxOCNYaLVgb6cXbkTdhJXq2SIlNMC0xIqhHczDbi8OVzpLSUa0WebRfmigLHqj1EcPZnwf7gbDIrYVRyEinurj6jTBHyI7pqVrFQqEbt6TEmZ9v1NRAJNC1xTYxIQh/MmRUlmFQE3qWOW1nqB2TWk1/3tgJV0waVvkFIEeZbHq4ElyKzAmEXOx6gnEVJuWBzmkRJBRPYGZBDsVaOlpSgVJE2yVaAe/0kx/3azBRO0VsbMFZE3CDSZKweZfYIVg+DZ6v7h9GDVOwZPw/PoxKu/fAgwALbDAXf7DdQkAAAAASUVORK5CYII=")
+    }
+  </style>
+</head>
+<body>
+  <h1>Index of {{path}}</h1>
+  <table>
+    <tbody>
+      <tr>
+        <td><i class="icon folder"></i></td>
+        <td></td>
+        <td></td>
+        <td><a href="../">../</a></td>
+      </tr>
+
+      {{#each folders}}
+      <tr>
+        <td><i class="icon folder"></i></td>
+        <td><code>({{this.0}})</code></td>
+        <td>{{this.1}}</td>
+        <td><a href="./{{this.2}}">{{this.2}}</a></td>
+      </tr>
+      {{/each}}
+
+      {{#each files}}
+      <tr>
+        <td><i class="icon file"></i></td>
+        <td><code>({{this.0}})</code></td>
+        <td>{{this.1}}</td>
+        <td><a href="./{{this.2}}">{{this.2}}</a></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <br>
+  <address>
+    Rust/ <a href="https://github.com/alshdavid/http-server-rs">http-server-rs</a> server running @ {{address}}:{{port}}
+  </address>
+</body>
+</html>

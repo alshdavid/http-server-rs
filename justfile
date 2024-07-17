@@ -86,3 +86,6 @@ test:
 
 fmt:
   cargo +nightly fmt
+
+watch:
+  cargo watch -- just run
