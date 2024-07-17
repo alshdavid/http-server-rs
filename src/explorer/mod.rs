@@ -1,6 +1,10 @@
+#[cfg(unix)]
+mod unix;
+
+#[cfg(windows)]
+mod windows;
+
 use std::fs;
-use std::os::unix::fs::MetadataExt;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -9,7 +13,17 @@ use chrono::Utc;
 use handlebars::Handlebars;
 use normalize_path::NormalizePath;
 use serde_json::json;
-use unix_mode;
+
+#[cfg(unix)]
+use self::unix::get_meta_mode;
+#[cfg(unix)]
+use self::unix::get_meta_size;
+
+#[cfg(windows)]
+use self::windows::get_meta_mode;
+
+#[cfg(windows)]
+use self::windows::get_meta_size;
 
 use crate::config::Config;
 
@@ -28,7 +42,7 @@ pub fn render_directory_explorer(
   for item in dir {
     let item = item.unwrap();
     let meta = item.metadata().unwrap();
-    let meta_mode = self::unix_mode::to_string(meta.permissions().mode());
+    let meta_mode = get_meta_mode(&meta);
     let last_modified: DateTime<Utc> = meta.modified().unwrap().into();
 
     let abs_path = pathdiff::diff_paths(item.path(), &config.serve_dir_abs).unwrap();
@@ -45,7 +59,7 @@ pub fn render_directory_explorer(
     } else {
       let filename = PathBuf::from(item.file_name().into_string().unwrap());
       let file_extension = filename.extension().unwrap().to_str().unwrap().to_string();
-      let size = meta.size();
+      let size = get_meta_size(&meta);
       files.push((
         file_extension,
         format!("{}", meta_mode),

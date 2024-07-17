@@ -70,7 +70,10 @@ fn server(
         let req_uri = req.uri().to_string();
 
         // Trim the leading "/" from the URI
-        let req_path = SharedString::from(req_uri.as_str()).get(1..).unwrap().to_string();
+        let req_path = SharedString::from(req_uri.as_str())
+          .get(1..)
+          .unwrap()
+          .to_string();
 
         // Guess the file path of the file to serve
         let mut file_path = config.serve_dir_abs.join(req_path.clone());
