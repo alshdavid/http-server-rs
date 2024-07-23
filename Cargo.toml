@@ -17,6 +17,8 @@ num_cpus = "*"
 handlebars = "*"
 serde_json = "*"
 chrono = "*"
+
+[target.'cfg(unix)'.dependencies]
 unix_mode = "*"
 
 [profile.release]
