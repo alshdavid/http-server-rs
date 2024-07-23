@@ -1,3 +1,5 @@
+#![deny(unused_crate_dependencies)]
+
 mod cli;
 mod config;
 mod explorer;
@@ -67,10 +69,8 @@ fn server(
       let mut res = Response::builder();
       let config = config.clone();
       async move {
-        let req_uri = req.uri().to_string();
-
         // Trim the leading "/" from the URI
-        let req_path = SharedString::from(req_uri.as_str())
+        let req_path = SharedString::from(req.uri().path())
           .get(1..)
           .unwrap()
           .to_string();
