@@ -22,6 +22,8 @@ use hyper::Request;
 use hyper::Response;
 use hyper_util::rt::TokioIo;
 use mime_guess;
+use notify::RecommendedWatcher;
+use notify::Watcher;
 use shared_string::SharedString;
 use tokio::net::TcpListener;
 
@@ -59,6 +61,19 @@ fn main() -> Result<(), String> {
 
     println!("{}", "📜 LOGS 📜".blue().bold());
   }
+
+  let mut watcher = RecommendedWatcher::new(
+    move |result: Result<notify::Event, notify::Error>| {
+      let event = result.unwrap();
+
+      if event.kind.is_modify() {
+        println!("File updated {:?}", event);               
+      }
+    },
+    notify::Config::default(),
+  ).unwrap();
+
+  watcher.watch(&config.serve_dir_abs, notify::RecursiveMode::Recursive).unwrap();
 
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
