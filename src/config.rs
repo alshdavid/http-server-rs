@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
+use std::path::MAIN_SEPARATOR_STR;
 
 use clap::Parser;
 use normalize_path::NormalizePath;
@@ -8,14 +9,19 @@ use pathdiff::diff_paths;
 
 use crate::cli::CliCommand;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Default, Debug)]
 pub struct Config {
   pub cwd: PathBuf,
+  pub version: String,
   pub serve_dir_abs: PathBuf,
   pub serve_dir_rel: PathBuf,
+  pub serve_dir_fmt: String,
   pub address: String,
   pub port: usize,
   pub domain: String,
+  pub domain_pretty: String,
   pub cache_time: usize,
   pub headers: HashMap<String, Vec<String>>,
   pub quiet: bool,
@@ -29,6 +35,10 @@ impl Config {
     };
 
     let domain = format!("{}:{}", command.address, command.port);
+    let mut domain_pretty = domain.clone();
+    if command.address == "0.0.0.0" {
+      domain_pretty = format!("localhost:{}", command.port)
+    }
 
     let serve_dir_abs: PathBuf;
     let serve_dir_rel: PathBuf;
@@ -81,9 +91,12 @@ impl Config {
 
     Ok(Config {
       cwd,
+      version: VERSION.to_string(),
+      serve_dir_fmt: format!(".{}{}", MAIN_SEPARATOR_STR, serve_dir_rel.to_str().unwrap()),
       serve_dir_abs,
       serve_dir_rel,
       domain,
+      domain_pretty,
       address: command.address,
       port: command.port,
       cache_time: command.cache_time,

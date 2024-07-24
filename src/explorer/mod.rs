@@ -18,13 +18,10 @@ use serde_json::json;
 use self::unix::get_meta_mode;
 #[cfg(unix)]
 use self::unix::get_meta_size;
-
 #[cfg(windows)]
 use self::windows::get_meta_mode;
-
 #[cfg(windows)]
 use self::windows::get_meta_size;
-
 use crate::config::Config;
 
 const DIR_PAGE: &str = include_str!("./dir.hbs");

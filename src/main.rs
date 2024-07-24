@@ -3,6 +3,7 @@
 mod cli;
 mod config;
 mod explorer;
+mod fmt;
 
 use std::convert::Infallible;
 use std::fs;
@@ -10,6 +11,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use colored::Colorize;
 use explorer::render_directory_explorer;
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -28,7 +30,34 @@ use crate::config::Config;
 fn main() -> Result<(), String> {
   let config = Arc::new(Config::from_cli()?);
   if !config.quiet {
-    println!("Serving on http://{}", config.domain);
+    println!("{}", format!("🚀 HTTP Server 🌏").green().bold());
+    println!("");
+
+    println!("📁 {}", format!("{}", config.serve_dir_fmt).bold());
+    fmt::print_config("Directory Listings", "enabled"); // TODO
+    fmt::print_config("GZIP", "disabled"); // TODO
+    fmt::print_config("Brotli", "disabled"); // TODO
+
+    for (key, values) in config.headers.iter() {
+      fmt::print_config(key, &values.join(", "));
+    }
+    println!("");
+
+    println!(
+      "{}",
+      format!("🔗 http://{}", config.domain).bold().bright_white()
+    );
+    if config.domain != config.domain_pretty {
+      println!(
+        "{}",
+        format!("🔗 http://{}", config.domain_pretty)
+          .bold()
+          .bright_white()
+      );
+    }
+    println!("");
+
+    println!("{}", "📜 LOGS 📜".blue().bold());
   }
 
   tokio::runtime::Builder::new_multi_thread()
@@ -100,7 +129,7 @@ fn server(
         // 404 if no file exists
         if !file_path.exists() {
           if !config.quiet {
-            println!("  [404] {}", req.uri());
+            println!("{} {}", "[404]".red().bold(), req.uri());
           }
 
           return Ok(
@@ -128,7 +157,7 @@ fn server(
         };
 
         if !config.quiet {
-          println!("  [200] {}", req.uri());
+          println!("{} {}", "[200]".green().bold(), req.uri());
         }
 
         let resp = res.body(Full::new(Bytes::from(file))).unwrap();
