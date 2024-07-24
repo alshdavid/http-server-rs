@@ -36,4 +36,8 @@ pub struct CliCommand {
   /// Don't print any logs to terminal
   #[arg(short = 'Q', long = "quiet")]
   pub quiet: bool,
+
+  /// Watch folder and trigger a browser reload
+  #[arg(short = 'w', long = "watch")]
+  pub watch: bool,
 }

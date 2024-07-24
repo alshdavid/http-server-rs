@@ -17,7 +17,8 @@ num_cpus = "*"
 handlebars = "*"
 serde_json = "*"
 chrono = "*"
-colored = "2"
+colored = "*"
+notify = { version = "*", features = ["serde"] }
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "*"

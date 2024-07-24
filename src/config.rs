@@ -27,6 +27,7 @@ pub struct Config {
   pub cache_time: usize,
   pub headers: HashMap<String, Vec<String>>,
   pub quiet: bool,
+  pub watch: bool,
 }
 
 impl Config {
@@ -98,6 +99,7 @@ impl Config {
       cache_time: command.cache_time,
       headers,
       quiet: command.quiet,
+      watch: command.watch,
     })
   }
 }
