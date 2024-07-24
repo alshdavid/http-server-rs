@@ -9,6 +9,13 @@
 
 <body>
   <script type="module" src="./index.js"></script>
+  <!-- <script src=".http-server-rs/reload" type="application/javascript"></script> -->
+  <script>
+    new EventSource(".http-server-rs/reload").onmessage = (event) => {
+      console.log('update')
+    };
+  </script>
 </body>
+
 
 </html>

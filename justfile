@@ -88,7 +88,7 @@ fmt:
   cargo +nightly fmt
 
 watch *ARGS:
-  cargo watch -- just run {{ARGS}}
+  cargo watch --watch src -- just run {{ARGS}}
 
 watch-silent *ARGS:
   cargo watch -- bash -c "just build && clear; {{out_dir}}/http-server {{ARGS}}"
