@@ -22,6 +22,7 @@ use hyper::Request;
 use hyper::Response;
 use hyper_util::rt::TokioIo;
 use mime_guess;
+use normalize_path::NormalizePath;
 use shared_string::SharedString;
 use tokio::net::TcpListener;
 
@@ -106,6 +107,18 @@ fn server(
 
         // Guess the file path of the file to serve
         let mut file_path = config.serve_dir_abs.join(req_path.clone());
+
+        // hyper handles preventing access to parent directories via "../../"
+        // but this is an extra layer of protection
+        if !file_path.normalize().starts_with(&config.serve_dir_abs) {
+          println!("{} {}", "[403]".red().bold(), req.uri());
+          return Ok(
+            res
+              .status(403)
+              .body(Full::new(Bytes::from("File not found")))
+              .unwrap(),
+          );
+        }
 
         // Try to serve index.html
         if file_path.is_dir() && file_path.join("index.html").exists() {

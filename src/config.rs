@@ -11,6 +11,7 @@ use crate::cli::CliCommand;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[allow(unused)]
 #[derive(Default, Debug)]
 pub struct Config {
   pub cwd: PathBuf,
@@ -50,13 +51,6 @@ impl Config {
     } else {
       serve_dir_abs = cwd.join(&command.serve_dir).normalize();
       serve_dir_rel = diff_paths(&serve_dir_abs, &cwd).unwrap();
-    }
-
-    if !serve_dir_abs.exists() {
-      return Err(format!(
-        "Serve directory not found: '{}'",
-        serve_dir_rel.to_str().unwrap()
-      ));
     }
 
     let mut headers = HashMap::<String, Vec<String>>::new();
