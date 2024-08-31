@@ -15,7 +15,7 @@ pub struct CliCommand {
   pub port: usize,
 
   /// Cache control time
-  #[arg(short = 'c', long = "cache-time", default_value = "3600")]
+  #[arg(short = 'c', long = "cache-time", default_value = "0")]
   pub cache_time: usize,
 
   /// Custom headers (Format "key:value")
