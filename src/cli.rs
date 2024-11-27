@@ -14,6 +14,9 @@ pub struct CliCommand {
   #[arg(short = 'p', long = "port", default_value = "8080")]
   pub port: usize,
 
+  #[arg(long = "spa")]
+  pub spa: bool,
+
   /// Cache control time
   #[arg(short = 'c', long = "cache-time", default_value = "0")]
   pub cache_time: usize,

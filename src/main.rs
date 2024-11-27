@@ -140,6 +140,15 @@ fn server(
         }
 
         // 404 if no file exists
+        if config.spa && !file_path.exists() {
+          file_path = config.serve_dir_abs.join("index.html");
+        }
+
+        if !config.spa && !file_path.exists() {
+          file_path = config.serve_dir_abs.join("404.html");
+        }
+
+        // 404 if no file exists
         if !file_path.exists() {
           if !config.quiet {
             println!("{} {}", "[404]".red().bold(), req.uri());
