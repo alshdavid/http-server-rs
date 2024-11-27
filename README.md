@@ -26,7 +26,8 @@ Arguments:
 Options:
   -a, --address <ADDRESS>        [default: 0.0.0.0]
   -p, --port <PORT>              [default: 8080]
-  -c, --cache-time <CACHE_TIME>  Cache control time [default: 3600]
+      --spa                      
+  -c, --cache-time <CACHE_TIME>  Cache control time [default: 0]
   -H, --header <HEADERS>         Custom headers (Format "key:value")
       --cors                     Enable CORS header
       --no-cache                 Disable cache control header
