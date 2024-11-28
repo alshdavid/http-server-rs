@@ -42,6 +42,10 @@ pub struct CliCommand {
   #[arg(short = 'w', long = "watch")]
   pub watch: bool,
 
+  /// Watch for changes [default: SERVE_DIR]
+  #[arg(long = "watch-dir")]
+  pub watch_dir: Option<PathBuf>,
+
   /// Don't automatically inject watch listener into html
   #[arg(long = "no-watch-inject")]
   pub no_watch_inject: bool,

@@ -33,6 +33,7 @@ Options:
       --no-cache                 Disable cache control header
   -Q, --quiet                    Don't print any logs to terminal
   -w, --watch                    Watch folder for changes and trigger a browser reload
+      --watch-dir <WATCH_DIR>    Watch for changes [default: SERVE_DIR]
       --no-watch-inject          Don't automatically inject watch listener into html
   -h, --help                     Print help
 ```

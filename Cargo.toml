@@ -17,10 +17,10 @@ handlebars = "*"
 serde_json = "*"
 chrono = "*"
 colored = "*"
-notify = { version = "*", features = ["serde"] }
 tokio-util = { version = "*", features = ["io", "io-util", "futures-util"] }
 futures = "*"
 anyhow = "*"
+notify-debouncer-full = "*"
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "*"

@@ -11,6 +11,8 @@ use std::convert::Infallible;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 use colored::Colorize;
 use explorer::reload_script;
@@ -24,8 +26,10 @@ use http_body_util::StreamBody;
 use hyper::body::Bytes as HyperBytes;
 use mime_guess;
 use normalize_path::NormalizePath;
-use notify::RecommendedWatcher;
-use notify::Watcher;
+use notify_debouncer_full::new_debouncer;
+use notify_debouncer_full::notify::EventKind;
+use notify_debouncer_full::notify::RecursiveMode;
+use notify_debouncer_full::DebounceEventResult;
 use tokio::io::AsyncWriteExt;
 use utils::broadcast::BroadcastChannel;
 
@@ -70,28 +74,43 @@ async fn main_async() -> anyhow::Result<()> {
 
   let trx_watch = Arc::new(BroadcastChannel::<Vec<PathBuf>>::new());
 
-  let _watcher = {
-    if config.watch {
+  let _notify_guard = if config.watch {
+    let (tx, rx) = std::sync::mpsc::channel::<DebounceEventResult>();
+
+    thread::spawn({
       let trx_watch = trx_watch.clone();
+      let logger = logger.clone();
 
-      let mut watcher = RecommendedWatcher::new(
-        move |result: Result<notify::Event, notify::Error>| {
-          let event = result.unwrap();
-          if event.kind.is_modify() {
-            trx_watch.send(event.paths).unwrap();
+      move || {
+        while let Ok(result) = rx.recv() {
+          match result {
+            Ok(mut result) => {
+              let mut paths = vec![];
+              while let Some(ev) = result.pop() {
+                match ev.event.kind {
+                  EventKind::Create(_) => {}
+                  EventKind::Modify(_) => {}
+                  EventKind::Remove(_) => {}
+                  _ => continue,
+                }
+                paths.extend(ev.paths.clone());
+              }
+              if !paths.is_empty() {
+                logger.println(format!("{}", "[CNG] ".yellow().bold()));
+                trx_watch.send(paths).unwrap();
+              }
+            }
+            Err(_) => todo!(),
           }
-        },
-        notify::Config::default(),
-      )
-      .unwrap();
+        }
+      }
+    });
 
-      watcher
-        .watch(&config.serve_dir_abs, notify::RecursiveMode::Recursive)
-        .unwrap();
-      Some(watcher)
-    } else {
-      None
-    }
+    let mut debouncer = new_debouncer(Duration::from_millis(1000), None, tx)?;
+    debouncer.watch(&config.watch_dir, RecursiveMode::Recursive)?;
+    Some(debouncer)
+  } else {
+    None
   };
 
   http1_server(&config.domain, {
@@ -150,15 +169,18 @@ async fn main_async() -> anyhow::Result<()> {
             }
           });
 
-          return Ok(
-            res
-              .header("X-Accel-Buffering", "no")
-              .header("Content-Type", "text/event-stream")
-              .header("Cache-Control", "no-cache")
-              .header("Connection", "keep-alive")
-              .status(hyper::StatusCode::OK)
-              .body(boxed_body)?,
-          );
+          let Ok(res) = res
+            .header("X-Accel-Buffering", "no")
+            .header("Content-Type", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .header("Connection", "keep-alive")
+            .status(hyper::StatusCode::OK)
+            .body(boxed_body)
+          else {
+            panic!();
+          };
+
+          return Ok(res);
         }
 
         // hyper handles preventing access to parent directories via "../../"
@@ -182,7 +204,11 @@ async fn main_async() -> anyhow::Result<()> {
 
         // Serve folder structure
         if file_path.is_dir() {
-          let output = render_directory_explorer(&config, &req_path, &file_path)?;
+          let mut output = render_directory_explorer(&config, &req_path, &file_path)?;
+
+          if config.watch {
+            output = format!("{}\n<script>{}</script>", output, reload_script());
+          }
 
           return Ok(
             res

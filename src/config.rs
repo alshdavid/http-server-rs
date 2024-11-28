@@ -28,6 +28,7 @@ pub struct Config {
   pub headers: HashMap<String, Vec<String>>,
   pub quiet: bool,
   pub watch: bool,
+  pub watch_dir: PathBuf,
   pub no_watch_inject: bool,
 }
 
@@ -90,7 +91,7 @@ impl Config {
       // cwd,
       // version: VERSION.to_string(),
       serve_dir_fmt: format!(".{}{}", MAIN_SEPARATOR_STR, serve_dir_rel.to_str().unwrap()),
-      serve_dir_abs,
+      serve_dir_abs: serve_dir_abs.clone(),
       // serve_dir_rel,
       domain,
       domain_pretty,
@@ -101,6 +102,7 @@ impl Config {
       headers,
       quiet: command.quiet,
       watch: command.watch,
+      watch_dir: command.watch_dir.unwrap_or(serve_dir_abs),
       no_watch_inject: command.no_watch_inject,
     })
   }
