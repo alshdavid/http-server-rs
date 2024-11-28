@@ -14,6 +14,7 @@ pub struct CliCommand {
   #[arg(short = 'p', long = "port", default_value = "8080")]
   pub port: usize,
 
+  /// Redirect requests to /index.html for Single Page Applications
   #[arg(long = "spa")]
   pub spa: bool,
 
@@ -37,7 +38,11 @@ pub struct CliCommand {
   #[arg(short = 'Q', long = "quiet")]
   pub quiet: bool,
 
-  /// Watch folder and trigger a browser reload
+  /// Watch folder for changes and trigger a browser reload
   #[arg(short = 'w', long = "watch")]
   pub watch: bool,
+
+  /// Don't automatically inject watch listener into html
+  #[arg(long = "no-watch-inject")]
+  pub no_watch_inject: bool,
 }

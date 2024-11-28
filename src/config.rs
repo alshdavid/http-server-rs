@@ -28,6 +28,7 @@ pub struct Config {
   pub headers: HashMap<String, Vec<String>>,
   pub quiet: bool,
   pub watch: bool,
+  pub no_watch_inject: bool,
 }
 
 impl Config {
@@ -100,6 +101,7 @@ impl Config {
       headers,
       quiet: command.quiet,
       watch: command.watch,
+      no_watch_inject: command.no_watch_inject,
     })
   }
 }

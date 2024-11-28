@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use colored::Colorize;
+use explorer::reload_script;
 use explorer::render_directory_explorer;
 use fmt::Logger;
 use futures::TryStreamExt;
@@ -111,6 +112,15 @@ async fn main_async() -> anyhow::Result<()> {
         let mut file_path = config.serve_dir_abs.join(req_path.clone());
 
         // If the watcher is enabled, return an event stream to the client to notify changes
+        if req_path == ".http-server-rs/reload.js" {
+          return Ok(
+            res
+              .header("Content-Type", "application/javascript")
+              .status(200)
+              .body(Bytes::from(reload_script()).into())?,
+          );
+        }
+
         if req_path == ".http-server-rs/reload" {
           let trx_watch = trx_watch.clone();
 
@@ -127,7 +137,7 @@ async fn main_async() -> anyhow::Result<()> {
             let mut rx = trx_watch.subscribe();
             while let Some(changes) = rx.recv().await {
               let msg = format!(
-                "event:changed\ndata:{}\n\n",
+                "data:{}\n\n",
                 changes
                   .into_iter()
                   .map(|v| v.to_str().unwrap().to_string())
@@ -147,8 +157,7 @@ async fn main_async() -> anyhow::Result<()> {
               .header("Cache-Control", "no-cache")
               .header("Connection", "keep-alive")
               .status(hyper::StatusCode::OK)
-              .body(boxed_body)
-              .expect("not to fail"),
+              .body(boxed_body)?,
           );
         }
 
@@ -205,7 +214,7 @@ async fn main_async() -> anyhow::Result<()> {
 
         // Read file
         // TODO not sure why tokio file read doesn't work here
-        let Ok(contents) = fs::read(&file_path) else {
+        let Ok(mut contents) = fs::read(&file_path) else {
           return Ok(
             res
               .status(500)
@@ -214,6 +223,18 @@ async fn main_async() -> anyhow::Result<()> {
         };
 
         logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+        if config.watch
+          && !config.no_watch_inject
+          && res
+            .headers_ref()
+            .unwrap()
+            .get("Content-Type")
+            .is_some_and(|h| h == "text/html")
+        {
+          contents.extend(format!("<script>{}</script>", reload_script()).as_bytes());
+        }
+
         Ok(res.status(200).body(Bytes::from(contents).into())?)
       }
     }
