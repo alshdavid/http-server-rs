@@ -1,9 +1,3 @@
-// use std::sync::mpsc::channel;
-// use std::sync::mpsc::Receiver;
-// use std::sync::mpsc::SendError;
-// use std::sync::mpsc::Sender;
-use std::thread;
-
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -30,18 +24,6 @@ impl<T: Clone + Send + 'static> BroadcastChannel<T> {
 
   pub fn subscribe(&self) -> UnboundedReceiver<T> {
     self.rrx.subscribe()
-  }
-
-  pub async fn merge(
-    &self,
-    mut receiver: UnboundedReceiver<T>,
-  ) {
-    let tx = self.tx.clone();
-    tokio::task::spawn(async move {
-      while let Some(data) = receiver.recv().await {
-        tx.send(data).unwrap()
-      }
-    });
   }
 }
 

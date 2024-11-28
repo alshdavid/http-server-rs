@@ -8,7 +8,6 @@ clap = { version = "*", features = ["derive"] }
 normalize-path = "*"
 pathdiff = "*"
 mime_guess = "*"
-shared-string = "*"
 tokio = { version = "*", features = ["rt-multi-thread"] }
 hyper = { version = "*", features = ["http1"] }
 http-body-util = "*"
@@ -21,6 +20,7 @@ colored = "*"
 notify = { version = "*", features = ["serde"] }
 tokio-util = { version = "*", features = ["io", "io-util", "futures-util"] }
 futures = "*"
+anyhow = "*"
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "*"

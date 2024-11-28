@@ -31,10 +31,10 @@ pub struct Config {
 }
 
 impl Config {
-  pub fn from_cli() -> Result<Self, String> {
+  pub fn from_cli() -> anyhow::Result<Self> {
     let command = CliCommand::parse();
     let Ok(cwd) = env::current_dir() else {
-      return Err("Unable to get cwd".to_string());
+      return Err(anyhow::anyhow!("Unable to get cwd"));
     };
 
     let domain = format!("{}:{}", command.address, command.port);
@@ -78,7 +78,7 @@ impl Config {
 
     for header in command.headers {
       let Some((key, value)) = header.split_once(":") else {
-        return Err("Unable to parse header".to_string());
+        return Err(anyhow::anyhow!("Unable to parse header"));
       };
       let key = key.to_string();
       let value = value.to_string();
