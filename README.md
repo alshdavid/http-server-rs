@@ -26,12 +26,13 @@ Arguments:
 Options:
   -a, --address <ADDRESS>        [default: 0.0.0.0]
   -p, --port <PORT>              [default: 8080]
-      --spa                      
+      --spa                      Redirect requests to /index.html for Single Page Applications
   -c, --cache-time <CACHE_TIME>  Cache control time [default: 0]
   -H, --header <HEADERS>         Custom headers (Format "key:value")
       --cors                     Enable CORS header
       --no-cache                 Disable cache control header
   -Q, --quiet                    Don't print any logs to terminal
+  -w, --watch                    Watch folder for changes and trigger a browser reload
   -h, --help                     Print help
 ```
 

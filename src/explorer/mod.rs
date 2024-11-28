@@ -25,6 +25,11 @@ use self::windows::get_meta_size;
 use crate::config::Config;
 
 const DIR_PAGE: &str = include_str!("./dir.hbs");
+const RELOAD_SCRIPT: &str = include_str!("./reload.mjs");
+
+pub fn reload_script() -> &'static str {
+  RELOAD_SCRIPT
+}
 
 pub fn render_directory_explorer(
   config: &Config,
