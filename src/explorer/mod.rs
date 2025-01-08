@@ -42,33 +42,56 @@ pub fn render_directory_explorer(
   let mut folders = Vec::<(String, String, String, String)>::new();
 
   for item in dir {
-    let item = item.unwrap();
+    let Ok(item) = item else {
+      return Ok("Access error".to_string());
+    };
+
     let meta = item.metadata()?;
     let meta_mode = get_meta_mode(&meta);
     let last_modified: DateTime<Utc> = meta.modified()?.into();
 
-    let abs_path = pathdiff::diff_paths(item.path(), &config.serve_dir_abs).unwrap();
-    let rel_path = pathdiff::diff_paths(item.path(), &config.serve_dir_abs.join(req_uri)).unwrap();
-    let rel_path_str = rel_path.to_str().unwrap();
+    let Some(abs_path) = pathdiff::diff_paths(item.path(), &config.serve_dir_abs) else {
+      return Ok(format!(
+        "Unable to diff path (absolute) \n\t{:?}\n\t{:?}",
+        item.path(),
+        config.serve_dir_abs
+      ));
+    };
+
+    let Some(rel_path) = pathdiff::diff_paths(item.path(), config.serve_dir_abs.join(req_uri))
+    else {
+      return Ok(format!(
+        "Unable to diff path (relative) \n\t{:?}\n\t{:?}",
+        item.path(),
+        config.serve_dir_abs
+      ));
+    };
+
+    let abs_path_str = abs_path.to_str().unwrap().to_string();
+    let rel_path_str = rel_path.to_str().unwrap().to_string();
 
     if item.file_type()?.is_dir() {
       folders.push((
-        format!("{}", meta_mode),
+        meta_mode.to_string(),
         format!("{}", last_modified.format("%d %b %Y %H:%M")),
-        abs_path.to_str().unwrap().to_string(),
-        rel_path_str.to_string(),
+        abs_path_str,
+        rel_path_str,
       ));
     } else {
       let filename = PathBuf::from(item.file_name().into_string().unwrap());
-      let file_extension = filename.extension().unwrap().to_str().unwrap().to_string();
+      let file_extension = match filename.extension() {
+        Some(ext) => ext.to_str().unwrap().to_string(),
+        None => "".to_string(),
+      };
+
       let size = get_meta_size(&meta);
       files.push((
         file_extension,
-        format!("{}", meta_mode),
+        meta_mode.to_string(),
         format!("{}", last_modified.format("%d %b %Y %H:%M")),
-        format!("{}", size),
-        abs_path.to_str().unwrap().to_string(),
-        rel_path_str.to_string(),
+        size.to_string(),
+        abs_path_str,
+        rel_path_str,
       ));
     };
   }
@@ -83,19 +106,19 @@ pub fn render_directory_explorer(
   }
 
   let handlebars = Handlebars::new();
-  let output = handlebars
-    .render_template(
-      DIR_PAGE,
-      &json!({
-        "parent": parent,
-        "path": req_uri,
-        "files": files,
-        "folders": folders,
-        "address": config.address.clone(),
-        "port": config.port.clone(),
-      }),
-    )
-    .unwrap();
+  let Ok(output) = handlebars.render_template(
+    DIR_PAGE,
+    &json!({
+      "parent": parent,
+      "path": req_uri,
+      "files": files,
+      "folders": folders,
+      "address": config.address.clone(),
+      "port": config.port.clone(),
+    }),
+  ) else {
+    return Ok("Unable to render page".to_string());
+  };
 
   Ok(output)
 }
