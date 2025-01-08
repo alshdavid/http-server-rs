@@ -10,6 +10,7 @@ mod utils;
 use std::convert::Infallible;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -39,10 +40,7 @@ async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
   let logger = Arc::new(Logger::new(&config));
 
-  logger.println(format!(
-    "{}",
-    "🚀 HTTP Server 🌏".green().bold().to_string()
-  ));
+  logger.println("🚀 HTTP Server 🌏".green().bold().to_string());
   logger.br();
   logger.println(format!("📁 {}", config.serve_dir_fmt).bold().to_string());
   logger.print_config("Directory Listings", &true); // TODO
@@ -269,10 +267,16 @@ async fn main_async() -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .worker_threads(num_cpus::get_physical())
-    .build()
-    .unwrap()
-    .block_on(main_async())
+  let (tx, rx) = channel::<anyhow::Result<()>>();
+
+  std::thread::spawn(move || {
+    tx.send(tokio::runtime::Builder::new_multi_thread()
+      .enable_all()
+      .worker_threads(num_cpus::get_physical())
+      .build()
+      .unwrap()
+      .block_on(main_async())).unwrap();
+  });
+
+  rx.recv()?
 }
