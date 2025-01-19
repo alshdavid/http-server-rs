@@ -1,5 +1,6 @@
 set windows-shell := ["pwsh", "-NoLogo", "-NoProfileLoadTime", "-Command"]
 
+project_name := "http-server"
 profile := env_var_or_default("profile", "debug")
 
 os := \
@@ -59,7 +60,7 @@ build:
   @rm -rf "{{out_dir_link}}"
   @mkdir -p "{{out_dir}}"
   cargo build {{profile_cargo}} {{target_cargo}}
-  @cp "./target/.cargo/{{target}}/{{profile}}/http-server" "{{out_dir}}"
+  @cp "./target/.cargo/{{target}}/{{profile}}/{{project_name}}" "{{out_dir}}"
   @# ln -rs "{{out_dir}}" "{{out_dir_link}}"
 
 [windows]
@@ -68,18 +69,18 @@ build:
   @if (Test-Path {{out_dir_link}}) { Remove-Item -Recurse -Force {{out_dir_link}} | Out-Null }
   @New-Item -ItemType "directory" -Force -Path "{{out_dir}}"  | Out-Null
   cargo build {{profile_cargo}} {{target_cargo}}
-  Copy-Item ".\target\.cargo\{{target}}\{{profile}}\http-server.exe" -Destination "{{out_dir}}" | Out-Null
+  Copy-Item ".\target\.cargo\{{target}}\{{profile}}\{{project_name}}.exe" -Destination "{{out_dir}}" | Out-Null
   @# New-Item -Path "{{out_dir}}" -ItemType SymbolicLink -Value "{{out_dir_link}}"
 
 [unix]
 run *ARGS:
   just build
-  {{out_dir}}/http-server {{ARGS}}
+  {{out_dir}}/{{project_name}} {{ARGS}}
 
 [windows]
 run *ARGS:
   just build
-  {{out_dir}}/http-server.exe {{ARGS}}
+  {{out_dir}}/{{project_name}}.exe {{ARGS}}
 
 test:
   cargo test
@@ -95,6 +96,8 @@ fmt:
 
 fmt_fix *ARGS:
   cargo +nightly fmt
+
+
 
 watch *ARGS:
   cargo watch --watch src -- just run {{ARGS}}
