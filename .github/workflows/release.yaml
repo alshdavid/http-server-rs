@@ -9,13 +9,16 @@ on:
     branches:
       - "main"
 
+env:
+  JUST_VERSION: "1.36.0"
+
 jobs:
   test:
     name: 🧪 Test
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
+        with: { submodules: true }
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
       - run: just test
@@ -25,7 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
+        with: { submodules: true }
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
       - run: just fmt
@@ -35,7 +38,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
+        with: { submodules: true }
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
       - run: just lint
@@ -84,7 +87,7 @@ jobs:
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v4
-      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
+        with: { submodules: true }
       - run: . ./.github/install-scripts/just/main.ps1
       - run: . ./.github/install-scripts/rust/main.ps1 && rustup target add ${{ matrix.config.rustup_target }}
       - env: 
