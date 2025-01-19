@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with: { submodules: true }
+      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
       - run: just test
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with: { submodules: true }
+      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
       - run: just fmt
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with: { submodules: true }
+      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
       - run: just lint
@@ -48,13 +48,13 @@ jobs:
             os: linux
             arch: amd64
             runner: ubuntu-24.04
-            rustup_target: x86_64-unknown-linux-gnu
+            rustup_target: x86_64-unknown-linux-musl
               
           - name: 🐥 Linux ARM64
             os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
-            rustup_target: aarch64-unknown-linux-gnu
+            rustup_target: aarch64-unknown-linux-musl
               
           - name: 🍎 MacOS AMD64
             os: macos
@@ -84,11 +84,9 @@ jobs:
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v4
-        with: { submodules: true }
+      - run: git submodule update --init "${{ github.workspace }}/.github/install-scripts"
       - run: . ./.github/install-scripts/just/main.ps1
-      - run: |
-          . ./.github/install-scripts/rust/main.ps1
-          rustup target add ${{ matrix.config.rustup_target }}
+      - run: . ./.github/install-scripts/rust/main.ps1 && rustup target add ${{ matrix.config.rustup_target }}
       - env: 
           os: "${{ matrix.config.os }}"
           arch: "${{ matrix.config.arch }}"

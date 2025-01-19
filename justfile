@@ -22,9 +22,9 @@ else \
 
 target := \
 if \
-  os + arch == "linuxamd64" { "x86_64-unknown-linux-gnu" } \
+  os + arch == "linuxamd64" { "x86_64-unknown-linux-musl" } \
 else if \
-  os + arch == "linuxarm64" { "aarch64-unknown-linux-gnu" } \
+  os + arch == "linuxarm64" { "aarch64-unknown-linux-musl" } \
 else if \
   os + arch == "macosamd64" { "x86_64-apple-darwin" } \
 else if\
