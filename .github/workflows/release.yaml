@@ -79,8 +79,8 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - run: . ./.github/setup/just/install.ps1
-      - run: . ./.github/setup/rust/install.ps1
+      - { shell: powershell, run: . ./.github/setup/just/install.ps1 }
+      - { shell: powershell, run: . ./.github/setup/rust/install.ps1 }
       - env: { os: "windows", arch: "amd64", profile: "release" }
         run: just build
       - uses: actions/upload-artifact@v4
@@ -91,12 +91,12 @@ jobs:
           retention-days: 1
 
   build_windows_arm64:
-    name: 🟦 Windows ARM64
+    name: 🟦 Windows ARM64 (Cross Compiled)
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - run: . ./.github/setup/just/install.ps1
-      - run: . ./.github/setup/rust/install.ps1
+      - { shell: powershell, run: . ./.github/setup/just/install.ps1 }
+      - { shell: powershell, run: . ./.github/setup/rust/install.ps1 }
       - env: { os: "windows", arch: "arm64", profile: "release" }
         run: just build
       - uses: actions/upload-artifact@v4
