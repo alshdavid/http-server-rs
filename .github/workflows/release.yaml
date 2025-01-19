@@ -48,13 +48,13 @@ jobs:
             os: linux
             arch: amd64
             runner: ubuntu-24.04
-            rustup_target: x86_64-unknown-linux-gnu
+            rustup_target: x86_64-unknown-linux-musl
               
           - name: 🐥 Linux ARM64
             os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
-            rustup_target: aarch64-unknown-linux-gnu
+            rustup_target: aarch64-unknown-linux-musl
               
           - name: 🍎 MacOS AMD64
             os: macos
