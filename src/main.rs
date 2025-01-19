@@ -1,48 +1,49 @@
 #![deny(unused_crate_dependencies)]
+#![allow(clippy::module_inception)]
 
 mod cli;
 mod config;
 mod explorer;
-mod fmt;
 mod http1;
+mod logger;
 mod utils;
+mod watcher;
 
 use std::convert::Infallible;
 use std::fs;
-use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 
 use colored::Colorize;
 use explorer::reload_script;
 use explorer::render_directory_explorer;
-use fmt::Logger;
 use futures::TryStreamExt;
 use http1::http1_server;
 use http1::Bytes;
 use http_body_util::combinators::BoxBody;
 use http_body_util::StreamBody;
 use hyper::body::Bytes as HyperBytes;
+use logger::Logger;
+use logger::LoggerDefault;
+use logger::LoggerNoop;
 use mime_guess;
 use normalize_path::NormalizePath;
-use notify_debouncer_full::new_debouncer;
-use notify_debouncer_full::notify::EventKind;
-use notify_debouncer_full::notify::RecursiveMode;
-use notify_debouncer_full::DebounceEventResult;
 use tokio::io::AsyncWriteExt;
-use utils::broadcast::BroadcastChannel;
+use watcher::Watcher;
+use watcher::WatcherOptions;
 
 use crate::config::Config;
 
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
-  let logger = Arc::new(Logger::new(&config));
+  let logger: Arc<dyn Logger> = match config.quiet {
+    true => Arc::new(LoggerNoop::default()),
+    false => Arc::new(LoggerDefault::default()),
+  };
 
-  logger.println("🚀 HTTP Server 🌏".green().bold().to_string());
+  logger.println(&"🚀 HTTP Server 🌏".green().bold());
   logger.br();
-  logger.println(format!("📁 {}", config.serve_dir_fmt).bold().to_string());
+  logger.println(&format!("📁 {}", config.serve_dir_fmt).bold());
   logger.print_config("Directory Listings", &true); // TODO
   logger.print_config("Watch", &config.watch); // TODO
   logger.print_config("GZIP", &false); // TODO
@@ -52,74 +53,35 @@ async fn main_async() -> anyhow::Result<()> {
     logger.print_config_str(key, &values.join(", "));
   }
   logger.br();
-  logger.println(
-    format!("🔗 http://{}", config.domain)
-      .bold()
-      .bright_white()
-      .to_string(),
-  );
+  logger.println(&format!("🔗 http://{}", config.domain).bold().bright_white());
 
   if config.domain != config.domain_pretty {
     logger.println(
-      format!("🔗 http://{}", config.domain_pretty)
+      &format!("🔗 http://{}", config.domain_pretty)
         .bold()
-        .bright_white()
-        .to_string(),
+        .bright_white(),
     );
   }
   logger.br();
-  logger.println("📜 LOGS 📜".blue().bold().to_string());
+  logger.println(&"📜 LOGS 📜".blue().bold());
 
-  let trx_watch = Arc::new(BroadcastChannel::<Vec<PathBuf>>::new());
-
-  let _notify_guard = if config.watch {
-    let (tx, rx) = std::sync::mpsc::channel::<DebounceEventResult>();
-
-    thread::spawn({
-      let trx_watch = trx_watch.clone();
-      let logger = logger.clone();
-
-      move || {
-        while let Ok(result) = rx.recv() {
-          match result {
-            Ok(mut result) => {
-              let mut paths = vec![];
-              while let Some(ev) = result.pop() {
-                match ev.event.kind {
-                  EventKind::Create(_) => {}
-                  EventKind::Modify(_) => {}
-                  EventKind::Remove(_) => {}
-                  _ => continue,
-                }
-                paths.extend(ev.paths.clone());
-              }
-              if !paths.is_empty() {
-                logger.println(format!("{}", "[CNG] ".yellow().bold()));
-                trx_watch.send(paths).unwrap();
-              }
-            }
-            Err(_) => todo!(),
-          }
-        }
-      }
-    });
-
-    let mut debouncer = new_debouncer(Duration::from_millis(1000), None, tx)?;
-    debouncer.watch(&config.watch_dir, RecursiveMode::Recursive)?;
-    Some(debouncer)
-  } else {
-    None
+  let watcher = match config.watch {
+    true => Some(Watcher::new(WatcherOptions {
+      target_dir: config.watch_dir.clone(),
+      logger: logger.clone(),
+    })?),
+    false => None,
   };
 
   http1_server(&config.domain, {
     let config = config.clone();
     let logger = logger.clone();
-    let trx_watch = trx_watch.clone();
+    let watcher = watcher.clone();
 
     move |req, mut res| {
       let config = config.clone();
       let logger = logger.clone();
-      let trx_watch = trx_watch.clone();
+      let watcher = watcher.clone();
 
       async move {
         // Remove the leading slash
@@ -138,8 +100,15 @@ async fn main_async() -> anyhow::Result<()> {
           );
         }
 
+        // Endpoint for filesystem change event stream
         if req_path == ".http-server-rs/reload" {
-          let trx_watch = trx_watch.clone();
+          let Some(watcher) = watcher else {
+            return Ok(
+              res
+                .status(500)
+                .body(Bytes::from("Watcher not running").into())?,
+            );
+          };
 
           let (mut writer, reader) = tokio::io::duplex(512);
 
@@ -150,8 +119,9 @@ async fn main_async() -> anyhow::Result<()> {
           let stream_body = StreamBody::new(reader_stream);
           let boxed_body = BoxBody::<HyperBytes, Infallible>::new(stream_body); // = stream_body.boxed().into();
 
+          let mut rx = watcher.subscribe();
+
           tokio::task::spawn(async move {
-            let mut rx = trx_watch.subscribe();
             while let Some(changes) = rx.recv().await {
               let msg = format!(
                 "data:{}\n\n",
@@ -184,7 +154,7 @@ async fn main_async() -> anyhow::Result<()> {
         // hyper handles preventing access to parent directories via "../../"
         // but this is an extra layer of protection
         if !file_path.normalize().starts_with(&config.serve_dir_abs) {
-          logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+          logger.println(&format!("{} {}", "[403]".red().bold(), req.uri()));
           return Ok(res.status(403).body(Bytes::from("Not allowed").into())?);
         }
 
@@ -227,7 +197,7 @@ async fn main_async() -> anyhow::Result<()> {
 
         // 404 if no file exists
         if !file_path.exists() {
-          logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
+          logger.println(&format!("{} {}", "[404]".red().bold(), req.uri()));
           return Ok(res.status(404).body(Bytes::from("File not found").into())?);
         }
 
@@ -246,7 +216,7 @@ async fn main_async() -> anyhow::Result<()> {
           );
         };
 
-        logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+        logger.println(&format!("{} {}", "[200]".green().bold(), req.uri()));
 
         if config.watch
           && !config.no_watch_inject
