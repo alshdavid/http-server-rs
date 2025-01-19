@@ -6,11 +6,11 @@ use std::time::Duration;
 use colored::Colorize;
 use notify_debouncer_full::new_debouncer;
 use notify_debouncer_full::notify::EventKind;
-use notify_debouncer_full::notify::FsEventWatcher;
+use notify_debouncer_full::notify::RecommendedWatcher;
 use notify_debouncer_full::notify::RecursiveMode;
 use notify_debouncer_full::DebounceEventResult;
 use notify_debouncer_full::Debouncer;
-use notify_debouncer_full::FileIdMap;
+use notify_debouncer_full::RecommendedCache;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::logger::Logger;
@@ -24,7 +24,7 @@ pub struct WatcherOptions {
 #[derive(Clone)]
 pub struct Watcher {
   trx_watch: Arc<BroadcastChannel<Vec<PathBuf>>>,
-  _debouncer: Arc<Debouncer<FsEventWatcher, FileIdMap>>,
+  _debouncer: Arc<Debouncer<RecommendedWatcher, RecommendedCache>>,
 }
 
 impl Watcher {
