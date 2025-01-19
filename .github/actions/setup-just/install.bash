@@ -58,7 +58,7 @@ fi
 echo $URL
 
 test -d $OUT_DIR && rm -rf $OUT_DIR
-mkdir $OUT_DIR
+mkdir -p $OUT_DIR
 curl -s -L --url $URL | tar -xzf - -C $OUT_DIR
 
 export PATH="${OUT_DIR}:$PATH"
