@@ -2,63 +2,84 @@
 set -e
 
 # Default to current latest
-if [ "$JUST_VERSION" = "" ]; then
-  echo No Just Version Specified
-  exit 1
+target_version="$JUST_VERSION"
+if [ "$target_version" = "" ]; then
+  target_version=$(curl --silent "https://api.github.com/repos/casey/just/releases/latest" | jq -r '.tag_name')
 fi 
 
 # Default to home directory
-if [ "$OUT_DIR" = "" ]; then
-  OUT_DIR="$HOME/.local/just"
+if [ "$out_dir" = "" ]; then
+  out_dir="$HOME/.local/just"
 fi 
 
-URL=""
-ARCH=""
-OS=""
+# Detect environment
+url=""
+arch=""
+platform=""
 
 case $(uname -m) in
   x86_64 | x86-64 | x64 | amd64)
-    ARCH="amd64"
+    arch="amd64"
   ;;
   aarch64 | arm64)
-    ARCH="arm64"
+    arch="arm64"
   ;;
 esac
 
 case $(uname -s) in
   Darwin)
-    OS="macos"
+    platform="macos"
   ;;
   Linux)
-    OS="linux"
+    platform="linux"
+  ;;
+  MSYS_NT*)
+    platform="windows"
   ;;
 esac
 
-case "$OS-$ARCH" in
+echo "Installing $platform-$arch"
+
+# Pick URL
+case "$platform-$arch" in
   linux-amd64)
-    URL=https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz
+    url=https://github.com/casey/just/releases/download/${target_version}/just-${target_version}-x86_64-unknown-linux-musl.tar.gz
   ;;
   linux-arm64)
-    URL=https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-aarch64-unknown-linux-musl.tar.gz
+    url=https://github.com/casey/just/releases/download/${target_version}/just-${target_version}-aarch64-unknown-linux-musl.tar.gz
   ;;
   macos-amd64)
-    URL=https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-apple-darwin.tar.gz
+    url=https://github.com/casey/just/releases/download/${target_version}/just-${target_version}-x86_64-apple-darwin.tar.gz
   ;;
   macos-arm64)
-    URL=https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-aarch64-apple-darwin.tar.gz
+    url=https://github.com/casey/just/releases/download/${target_version}/just-${target_version}-aarch64-apple-darwin.tar.gz
+  ;;
+  windows-amd64)
+    url=https://github.com/casey/just/releases/download/${target_version}/just-${target_version}-x86_64-pc-windows-msvc.zip
+  ;;
+  windows-arm64)
+    url=https://github.com/casey/just/releases/download/${target_version}/just-${target_version}-aarch64-pc-windows-msvc.zip
   ;;
 esac
 
-if [ "$URL" == "" ]; then
+if [ "$url" == "" ]; then
   echo "Cannot find installer for Just"
   exit 1
 fi
 
-echo $URL
+# Install into directory
+echo $url
 
-test -d $OUT_DIR && rm -rf $OUT_DIR
-mkdir -p $OUT_DIR
-curl -s -L --url $URL | tar -xzf - -C $OUT_DIR
+test -d $out_dir && rm -rf $out_dir
+mkdir -p $out_dir
 
-export PATH="${OUT_DIR}:$PATH"
-echo "${OUT_DIR}" >> $GITHUB_PATH
+curl -s -L --url $url | tar -xzf - -C $out_dir
+
+export PATH="${out_dir}:$PATH"
+
+if [ "$GITHUB_PATH" != "" ]; then
+  echo "${out_dir}" >> $GITHUB_PATH
+fi
+
+# Debug
+just --version

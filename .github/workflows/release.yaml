@@ -9,9 +9,6 @@ on:
     branches:
       - "main"
 
-env:
-  JUST_VERSION: "1.38.0"
-
 jobs:
   test:
     name: 🧪 Test
@@ -84,24 +81,14 @@ jobs:
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v4
-      # Dependencies Unix
-      - if: runner.os != 'Windows'
-        run: source ./.github/setup/just/install.bash
-      - if: runner.os != 'Windows'
-        run: |
-          source ./.github/setup/rust/install.bash
+      - run: . ./.github/setup/just/main.ps1
+      - run: |
+          . ./.github/setup/rust/main.ps1
           rustup target add ${{ matrix.config.rustup_target }}
-      # Dependencies Windows
-      - if: runner.os == 'Windows'
-        run: uname -s
-      - if: runner.os == 'Windows'
-        run: . ./.github/setup/just/install.ps1
-      - if: runner.os == 'Windows'
-        run: |
-          . ./.github/setup/rust/install.ps1
-          rustup target add ${{ matrix.config.rustup_target }}
-      # Build
-      - env: { os: "${{ matrix.config.os }}", arch: "${{ matrix.config.arch }}", profile: "release" }
+      - env: 
+          os: "${{ matrix.config.os }}"
+          arch: "${{ matrix.config.arch }}"
+          profile: "release"
         run: just build
       - uses: actions/upload-artifact@v4
         with:
