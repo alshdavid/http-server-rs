@@ -15,7 +15,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    # Builds for Native Hosts
     - name: "Build Bin"
       if: |
         (runner.os == 'Linux' && runner.arch == 'X64' && 
@@ -54,56 +53,7 @@ runs:
         . .github/actions/setup-env/setup-env.ps1
         . .github/actions/build-bin/build.ps1
 
-    # Cross Compilation
-    - name: "Build Bin (Cross Build - Linux arm64 on amd64)" 
-      if: |
-        (runner.os == 'Linux' && runner.arch == 'X64' && 
-          inputs.os == 'linux' && inputs.arch == 'arm64')
-      shell: bash
-      env:
-        os: "${{inputs.os}}"
-        arch: "${{inputs.arch}}"
-        profile: "${{inputs.profile}}"
-      run: |
-        source .github/actions/setup-env/setup-env.bash
-        export CC=aarch64-linux-gnu-gcc
-
-        sudo apt-get update
-        sudo apt-get install gcc-aarch64-linux-gnu build-essential
-        rustup target add aarch64-unknown-linux-gnu
-        aarch64-linux-gnu-gcc --version
-
-        bash .github/actions/build-bin/build.bash
-    
-    - name: "Build Bin (Cross Build - MacOS amd64 on arm64)" 
-      if: |
-        (runner.os == 'macOS' && runner.arch == 'ARM64' && 
-          inputs.os == 'macos' && inputs.arch == 'amd64')
-      shell: bash
-      env:
-        os: "${{inputs.os}}"
-        arch: "${{inputs.arch}}"
-        profile: "${{inputs.profile}}"
-      run: |
-        source .github/actions/setup-env/setup-env.bash
-        rustup target add x86_64-apple-darwin
-        bash .github/actions/build-bin/build.bash
-
-    - name: "Build Bin (Cross Build - MacOS arm64 on amd64)" 
-      if: |
-        (runner.os == 'macOS' && runner.arch == 'ARM64' && 
-          inputs.os == 'macos' && inputs.arch == 'amd64')
-      shell: bash
-      env:
-        os: "${{inputs.os}}"
-        arch: "${{inputs.arch}}"
-        profile: "${{inputs.profile}}"
-      run: |
-        source .github/actions/setup-env/setup-env.bash
-        rustup aarch64-apple-darwin
-        bash .github/actions/build-bin/build.bash  
-
-    - name: "Build Bin (Cross Build - Windows arm64 on amd64)" 
+    - name: "Build Bin - Windows arm64 (Cross build on amd64)" 
       if: |
         (runner.os == 'Windows' && runner.arch == 'X64' && 
           inputs.os == 'windows' && inputs.arch == 'arm64')
