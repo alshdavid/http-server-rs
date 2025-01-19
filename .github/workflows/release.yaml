@@ -10,47 +10,98 @@ on:
       - "main"
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        config:
-          - name: 🐥 Linux AMD64
-            os: linux
-            arch: amd64
-            runner: ubuntu-24.04
-          - name: 🐥 Linux ARM64
-            os: linux
-            arch: arm64
-            runner: ubuntu-24.04-arm
-          - name: 🍎 MacOS AMD64
-            os: macos
-            arch: amd64
-            runner: macos-13
-          - name: 🍎 MacOS ARM64
-            os: macos
-            arch: arm64
-            runner: macos-15
-          - name: 🟦 Windows AMD64
-            os: windows
-            arch: amd64
-            runner: windows-2025
-          - name: 🟦 Windows ARM64
-            os: windows
-            arch: arm64
-            runner: windows-2025
-    name: ${{ matrix.config.name }}
-    runs-on: ${{ matrix.config.runner }}
+  build_linux_amd64:
+    name: 🐥 Linux AMD64
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-just
-      - uses: ./.github/actions/setup-rust
-      - uses: ./.github/actions/build-bin
-        with: 
-          os: "${{ matrix.config.os }}"
-          arch: "${{ matrix.config.arch }}"
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - env: { os: "linux", arch: "amd64", profile: "release" }
+        run: just build
       - uses: actions/upload-artifact@v4
         with:
-          name: http-server-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          name: http-server-linux-amd64
+          path: ${{ github.workspace }}/artifacts/**/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build_linux_arm64:
+    name: 🐥 Linux ARM64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - env: { os: "linux", arch: "arm64", profile: "release" }
+        run: just build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: http-server-linux-arm64
+          path: ${{ github.workspace }}/artifacts/**/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build_macos_amd64:
+    name: 🍎 MacOS AMD64
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - env: { os: "macos", arch: "amd64", profile: "release" }
+        run: just build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: http-server-macos-amd64
+          path: ${{ github.workspace }}/artifacts/**/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build_macos_arm64:
+    name: 🍎 MacOS ARM64
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - env: { os: "macos", arch: "arm64", profile: "release" }
+        run: just build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: http-server-macos-arm64
+          path: ${{ github.workspace }}/artifacts/**/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build_windows_amd64:
+    name: 🟦 Windows AMD64
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - run: . ./.github/setup/just/install.ps1
+      - run: . ./.github/setup/rust/install.ps1
+      - env: { os: "windows", arch: "amd64", profile: "release" }
+        run: just build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: http-server-windows-amd64
+          path: ${{ github.workspace }}/artifacts/**/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build_windows_arm64:
+    name: 🟦 Windows ARM64
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - run: . ./.github/setup/just/install.ps1
+      - run: . ./.github/setup/rust/install.ps1
+      - env: { os: "windows", arch: "arm64", profile: "release" }
+        run: just build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: http-server-windows-arm64
           path: ${{ github.workspace }}/artifacts/**/*
           if-no-files-found: error
           retention-days: 1
@@ -58,7 +109,13 @@ jobs:
   publish-github-release:
     name: "🔄 Publish Github Release"
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: 
+      - build_linux_amd64
+      - build_linux_arm64
+      - build_macos_amd64
+      - build_macos_arm64
+      - build_windows_amd64
+      - build_windows_arm64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
