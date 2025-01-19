@@ -14,3 +14,5 @@ Write-Output "CARGO_HOME=${HOME}\.local\rust\cargo" >> $env:GITHUB_ENV
 Invoke-WebRequest 'https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe' -OutFile $HOME\.local\rust\rustup-init.exe
 
 & "$HOME\.local\rust\rustup-init.exe" --no-modify-path -y
+
+rustup toolchain install nightly

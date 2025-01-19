@@ -63,5 +63,5 @@ pub fn channel_broadcast<T: Clone + Send + 'static>() -> (UnboundedSender<T>, Su
     }
   });
 
-  return (tx_t, Subscribable { tx_subscribe });
+  (tx_t, Subscribable { tx_subscribe })
 }
