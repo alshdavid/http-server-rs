@@ -54,20 +54,20 @@ impl From<String> for Bytes {
   }
 }
 
-impl Into<Full<HyperBytes>> for Bytes {
-  fn into(self) -> Full<HyperBytes> {
-    Full::new(HyperBytes::from(self.0))
+impl From<Bytes> for Full<HyperBytes> {
+  fn from(val: Bytes) -> Self {
+    Full::new(HyperBytes::from(val.0))
   }
 }
 
-impl Into<BoxBody<HyperBytes, Infallible>> for Bytes {
-  fn into(self) -> BoxBody<HyperBytes, Infallible> {
-    BoxBody::new(Full::new(HyperBytes::from(self.0)))
+impl From<Bytes> for BoxBody<HyperBytes, Infallible> {
+  fn from(val: Bytes) -> Self {
+    BoxBody::new(Full::new(HyperBytes::from(val.0)))
   }
 }
 
 /// Simple wrapper around hyper to make it a little nicer to use
-pub async fn http1_server<'a, F, Fut, A>(
+pub async fn http1_server<F, Fut, A>(
   addr: A,
   handle_func: F,
 ) -> anyhow::Result<()>
