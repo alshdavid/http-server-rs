@@ -88,6 +88,14 @@ async fn main_async() -> anyhow::Result<()> {
 
         // If the watcher is enabled, return an event stream to the client to notify changes
         if req_path == ".http-server-rs/reload.js" {
+          if !config.watch {
+            return Ok(
+              res
+                .status(404)
+                .body(Bytes::from("Watcher not running").into())?,
+            );
+          };
+
           return Ok(
             res
               .header("Content-Type", "application/javascript")
@@ -101,7 +109,7 @@ async fn main_async() -> anyhow::Result<()> {
           let Some(watcher) = watcher else {
             return Ok(
               res
-                .status(500)
+                .status(404)
                 .body(Bytes::from("Watcher not running").into())?,
             );
           };

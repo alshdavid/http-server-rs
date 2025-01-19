@@ -27,7 +27,7 @@ where
   F: 'static + Send + Fn(Request<Incoming>, ResponseBuilder) -> Fut,
   Fut: Send + Future<Output = anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>>>,
 {
-  let listener = TcpListener::bind(&addr).await.unwrap();
+  let listener = TcpListener::bind(&addr).await?;
 
   let (tx, mut rx) = unbounded_channel::<(
     Request<Incoming>,
