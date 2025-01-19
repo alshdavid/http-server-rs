@@ -17,7 +17,6 @@ use colored::Colorize;
 use explorer::reload_script;
 use explorer::render_directory_explorer;
 use http1::http1_server;
-use http1::Bytes;
 use http1::ResponseBuilderExt;
 use logger::Logger;
 use logger::LoggerDefault;
@@ -89,29 +88,21 @@ async fn main_async() -> anyhow::Result<()> {
         // If the watcher is enabled, return an event stream to the client to notify changes
         if req_path == ".http-server-rs/reload.js" {
           if !config.watch {
-            return Ok(
-              res
-                .status(404)
-                .body(Bytes::from("Watcher not running").into())?,
-            );
+            return Ok(res.status(404).body_from("Watcher not running")?);
           };
 
           return Ok(
             res
               .header("Content-Type", "application/javascript")
               .status(200)
-              .body(Bytes::from(reload_script()).into())?,
+              .body_from(reload_script())?,
           );
         }
 
         // Endpoint for filesystem change event stream
         if req_path == ".http-server-rs/reload" {
           let Some(watcher) = watcher else {
-            return Ok(
-              res
-                .status(404)
-                .body(Bytes::from("Watcher not running").into())?,
-            );
+            return Ok(res.status(404).body_from("Watcher not running")?);
           };
 
           let (res, mut writer) = res
@@ -147,7 +138,7 @@ async fn main_async() -> anyhow::Result<()> {
         // but this is an extra layer of protection
         if !file_path.normalize().starts_with(&config.serve_dir_abs) {
           logger.println(&format!("{} {}", "[403]".red().bold(), req.uri()));
-          return Ok(res.status(403).body(Bytes::from("Not allowed").into())?);
+          return Ok(res.status(403).body_from("Not allowed")?);
         }
 
         // Try to serve index.html
@@ -174,7 +165,7 @@ async fn main_async() -> anyhow::Result<()> {
             res
               .header("Content-Type", "text/html")
               .status(200)
-              .body(Bytes::from(output).into())?,
+              .body_from(output)?,
           );
         }
 
@@ -190,7 +181,7 @@ async fn main_async() -> anyhow::Result<()> {
         // 404 if no file exists
         if !file_path.exists() {
           logger.println(&format!("{} {}", "[404]".red().bold(), req.uri()));
-          return Ok(res.status(404).body(Bytes::from("File not found").into())?);
+          return Ok(res.status(404).body_from("File not found")?);
         }
 
         // Apply mime type
@@ -201,11 +192,7 @@ async fn main_async() -> anyhow::Result<()> {
         // Read file
         // TODO not sure why tokio file read doesn't work here
         let Ok(mut contents) = fs::read(&file_path) else {
-          return Ok(
-            res
-              .status(500)
-              .body(Bytes::from("Unable to open file").into())?,
-          );
+          return Ok(res.status(500).body_from("Unable to open file")?);
         };
 
         logger.println(&format!("{} {}", "[200]".green().bold(), req.uri()));
@@ -221,7 +208,7 @@ async fn main_async() -> anyhow::Result<()> {
           contents.extend(format!("<script>{}</script>", reload_script()).as_bytes());
         }
 
-        Ok(res.status(200).body(Bytes::from(contents).into())?)
+        Ok(res.status(200).body_from(contents)?)
       }
     }
   })

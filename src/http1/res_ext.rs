@@ -9,9 +9,15 @@ use hyper::body::Bytes as HyperBytes;
 use hyper::http::response::Builder as ResponseBuilder;
 use tokio::io::DuplexStream;
 
+use super::Bytes;
+
 pub trait ResponseBuilderExt {
   fn body_stream(self)
     -> HttpResult<(HttpResponse<BoxBody<HyperBytes, Infallible>>, DuplexStream)>;
+  fn body_from(
+    self,
+    bytes: impl Into<Bytes>,
+  ) -> HttpResult<HttpResponse<BoxBody<HyperBytes, Infallible>>>;
 }
 
 impl ResponseBuilderExt for ResponseBuilder {
@@ -31,5 +37,12 @@ impl ResponseBuilderExt for ResponseBuilder {
     let res: http::Response<BoxBody<HyperBytes, Infallible>> = self.body(boxed_body)?;
 
     Ok((res, writer))
+  }
+
+  fn body_from(
+    self,
+    bytes: impl Into<Bytes>,
+  ) -> HttpResult<HttpResponse<BoxBody<HyperBytes, Infallible>>> {
+    self.body(bytes.into().into())
   }
 }
