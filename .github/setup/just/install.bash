@@ -2,13 +2,12 @@
 set -e
 
 # Default to current latest
-JUST_VERSION="$1"
 if [ "$JUST_VERSION" = "" ]; then
-  JUST_VERSION="1.26.0"
+  echo No Just Version Specified
+  exit 1
 fi 
 
 # Default to home directory
-OUT_DIR="$2"
 if [ "$OUT_DIR" = "" ]; then
   OUT_DIR="$HOME/.local/just"
 fi 

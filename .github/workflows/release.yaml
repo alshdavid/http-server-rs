@@ -9,6 +9,9 @@ on:
     branches:
       - "main"
 
+env:
+  JUST_VERSION: "1.38.0"
+
 jobs:
   build_linux_amd64:
     name: 🐥 Linux AMD64
