@@ -4,26 +4,30 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "*", features = ["derive"] }
-normalize-path = "*"
-pathdiff = "*"
-mime_guess = "*"
-tokio = { version = "*", features = ["rt-multi-thread"] }
-hyper = { version = "*", features = ["http1"] }
-http-body-util = "*"
-hyper-util = { version = "*", features = ["server-graceful"] }
-num_cpus = "*"
-handlebars = "*"
-serde_json = "*"
-chrono = "*"
-colored = "*"
-tokio-util = { version = "*", features = ["io", "io-util", "futures-util"] }
-futures = "*"
-anyhow = "*"
-notify-debouncer-full = "*"
+clap = { version = "4.5.26", features = ["derive"] }
+normalize-path = "0.2.1"
+pathdiff = "0.2.3"
+mime_guess = "2.0.5"
+tokio = { version = "1.43.0", features = ["rt-multi-thread"] }
+hyper = { version = "1.5.2", features = ["http1"] }
+http-body-util = "0.1.2"
+hyper-util = { version = "0.1.10", features = ["server-graceful"] }
+num_cpus = "1.16.0"
+handlebars = "6.3.0"
+serde_json = "1.0.136"
+chrono = "0.4.39"
+colored = "3.0.0"
+tokio-util = { version = "0.7.13", features = [
+  "io",
+  "io-util",
+  "futures-util",
+] }
+futures = "0.3.31"
+anyhow = "1.0.95"
+notify-debouncer-full = "0.5.0"
 
 [target.'cfg(unix)'.dependencies]
-unix_mode = "*"
+unix_mode = "0.1.4"
 
 [profile.release]
 opt-level = 3
