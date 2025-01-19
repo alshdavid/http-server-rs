@@ -84,7 +84,16 @@ run *ARGS:
 test:
   cargo test
 
+lint:
+  cargo +nightly clippy -- --deny "warnings"
+
+lint_fix *ARGS:
+  cargo +nightly clippy --fix --allow-staged -- --deny "warnings"
+
 fmt:
+  cargo +nightly fmt --check
+
+fmt_fix *ARGS:
   cargo +nightly fmt
 
 watch *ARGS:

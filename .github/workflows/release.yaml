@@ -13,6 +13,33 @@ env:
   JUST_VERSION: "1.38.0"
 
 jobs:
+  test:
+    name: 🧪 Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - run: just test
+        
+  format:
+    name: 📝 Format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - run: just fmt
+        
+  lint:
+    name: 🤓 Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: source ./.github/setup/just/install.bash
+      - run: source ./.github/setup/rust/install.bash
+      - run: just lint
+
   build_linux_amd64:
     name: 🐥 Linux AMD64
     runs-on: ubuntu-24.04
@@ -115,32 +142,37 @@ jobs:
     name: "🔄 Publish Github Release"
     runs-on: ubuntu-latest
     needs: 
+      - test
+      - format
+      - lint
       - build_linux_amd64
-      # - build_linux_arm64
-      # - build_macos_amd64
-      # - build_macos_arm64
-      # - build_windows_amd64
-      # - build_windows_arm64
+      - build_linux_arm64
+      - build_macos_amd64
+      - build_macos_arm64
+      - build_windows_amd64
+      - build_windows_arm64
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
+        with: { path: artifacts }
       - name: Publish` Github Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ls -l
-          ls -l http-server-linux-amd64
+          set -e
 
-          # TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
-          # echo "Tag: ${TAG}"
-
-          # gh release create $TAG  --draft --notes "Automatically built binaries"
-          # gh release edit $TAG --title "🚀 Latest"
-
-          # gh release upload $TAG http-server-linux-amd64/http-server-linux-amd64.tar.gz
-          # gh release upload $TAG http-server-linux-arm64/http-server-linux-arm64.tar.gz
-          # gh release upload $TAG http-server-macos-amd64/http-server-macos-amd64.tar.gz
-          # gh release upload $TAG http-server-macos-arm64/http-server-macos-arm64.tar.gz
-          # gh release upload $TAG http-server-windows-amd64/http-server-windows-amd64.tar.gz
-          # gh release upload $TAG http-server-windows-arm64/http-server-windows-arm64.tar.gz
+          TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
+          echo "Tag: ${TAG}"
           
-          # gh release edit $TAG --draft=false
+          gh release create $TAG  --draft --notes "Automatically built binaries"
+          gh release edit $TAG --title "🚀 Latest"
+
+          cd artifacts
+
+          for name in *; do
+            cd "${{ github.workspace }}/artifacts/${name}/release"
+            tar -czvf ./${name}.tar.gz ./*
+            gh release upload $TAG ${name}.tar.gz
+          done
+         
+          gh release edit $TAG --draft=false

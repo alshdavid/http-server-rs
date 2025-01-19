@@ -9,7 +9,7 @@ pub struct Logger {
 impl Logger {
   pub fn new(config: &Config) -> Self {
     Self {
-      quiet: config.quiet.clone(),
+      quiet: config.quiet,
     }
   }
 
@@ -24,7 +24,7 @@ impl Logger {
 
   pub fn br(&self) {
     if !self.quiet {
-      println!("");
+      println!();
     }
   }
 

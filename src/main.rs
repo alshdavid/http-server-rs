@@ -270,12 +270,15 @@ fn main() -> anyhow::Result<()> {
   let (tx, rx) = channel::<anyhow::Result<()>>();
 
   std::thread::spawn(move || {
-    tx.send(tokio::runtime::Builder::new_multi_thread()
-      .enable_all()
-      .worker_threads(num_cpus::get_physical())
-      .build()
-      .unwrap()
-      .block_on(main_async())).unwrap();
+    tx.send(
+      tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(num_cpus::get_physical())
+        .build()
+        .unwrap()
+        .block_on(main_async()),
+    )
+    .unwrap();
   });
 
   rx.recv()?
