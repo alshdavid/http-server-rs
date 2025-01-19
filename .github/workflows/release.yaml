@@ -10,6 +10,7 @@ on:
       - "main"
 
 env:
+  PROJECT_NAME: http-server
   JUST_VERSION: "1.36.0"
 
 jobs:
@@ -17,30 +18,30 @@ jobs:
     name: 🧪 Test
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-        with: { submodules: true }
+      - { uses: actions/checkout@v4, with: { submodules: true } }
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
+      - run: sudo apt install -y pkg-config libfreetype6-dev libfontconfig1-dev
       - run: just test
         
   format:
     name: 📝 Format
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-        with: { submodules: true }
+      - { uses: actions/checkout@v4, with: { submodules: true } }
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
+      - run: sudo apt install -y pkg-config libfreetype6-dev libfontconfig1-dev
       - run: just fmt
         
   lint:
     name: 🤓 Lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-        with: { submodules: true }
+      - { uses: actions/checkout@v4, with: { submodules: true } }
       - run: source ./.github/install-scripts/just/main.ps1
       - run: source ./.github/install-scripts/rust/main.ps1
+      - run: sudo apt install -y pkg-config libfreetype6-dev libfontconfig1-dev
       - run: just lint
 
   build:
@@ -51,45 +52,46 @@ jobs:
             os: linux
             arch: amd64
             runner: ubuntu-24.04
-            rustup_target: x86_64-unknown-linux-musl
+            run: |
+              rustup target add x86_64-unknown-linux-musl
               
           - name: 🐥 Linux ARM64
             os: linux
             arch: arm64
             runner: ubuntu-24.04-arm
-            rustup_target: aarch64-unknown-linux-musl
+            run: |
+              rustup target add aarch64-unknown-linux-musl
               
           - name: 🍎 MacOS AMD64
             os: macos
             arch: amd64
             runner: macos-13
-            rustup_target: x86_64-apple-darwin
               
           - name: 🍎 MacOS ARM64
             os: macos
             arch: arm64
             runner: macos-15
-            rustup_target: aarch64-apple-darwin
               
           - name: 🟦 Windows AMD64
             os: windows
             arch: amd64
             runner: windows-latest
-            rustup_target: x86_64-pc-windows-msvc
               
           - name: 🟦 Windows ARM64
             os: windows
             arch: arm64
             runner: windows-latest
-            rustup_target: aarch64-pc-windows-msvc
+            run: |
+              rustup target add aarch64-pc-windows-msvc
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.runner }}
     steps:
-      - uses: actions/checkout@v4
-        with: { submodules: true }
+      - { uses: actions/checkout@v4, with: { submodules: true } }
       - run: . ./.github/install-scripts/just/main.ps1
-      - run: . ./.github/install-scripts/rust/main.ps1 && rustup target add ${{ matrix.config.rustup_target }}
+      - run: . ./.github/install-scripts/rust/main.ps1
+      - if: matrix.config.run
+        run: ${{ matrix.config.run }}
       - env: 
           os: "${{ matrix.config.os }}"
           arch: "${{ matrix.config.arch }}"
@@ -97,7 +99,7 @@ jobs:
         run: just build
       - uses: actions/upload-artifact@v4
         with:
-          name: http-server-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          name: ${{ env.PROJECT_NAME }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ github.workspace }}/target/${{ matrix.config.os }}-${{ matrix.config.arch }}/**/*
           if-no-files-found: error
           retention-days: 1
