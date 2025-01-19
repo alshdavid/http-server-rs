@@ -25,7 +25,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: http-server-linux-amd64
-          path: ${{ github.workspace }}/artifacts/**/*
+          path: ${{ github.workspace }}/target/linux-amd64/**/*
           if-no-files-found: error
           retention-days: 1
 
@@ -41,7 +41,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: http-server-linux-arm64
-          path: ${{ github.workspace }}/artifacts/**/*
+          path: ${{ github.workspace }}/target/linux-arm64/**/*
           if-no-files-found: error
           retention-days: 1
 
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: http-server-macos-amd64
-          path: ${{ github.workspace }}/artifacts/**/*
+          path: ${{ github.workspace }}/target/macos-amd64/**/*
           if-no-files-found: error
           retention-days: 1
 
@@ -73,7 +73,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: http-server-macos-arm64
-          path: ${{ github.workspace }}/artifacts/**/*
+          path: ${{ github.workspace }}/target/macos-arm64/**/*
           if-no-files-found: error
           retention-days: 1
 
@@ -82,30 +82,32 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - { shell: powershell, run: . ./.github/setup/just/install.ps1 }
-      - { shell: powershell, run: . ./.github/setup/rust/install.ps1 }
+      - run: . ./.github/setup/just/install.ps1
+      - run: . ./.github/setup/rust/install.ps1
       - env: { os: "windows", arch: "amd64", profile: "release" }
         run: just build
       - uses: actions/upload-artifact@v4
         with:
           name: http-server-windows-amd64
-          path: ${{ github.workspace }}/artifacts/**/*
+          path: ${{ github.workspace }}/target/windows-amd64/**/*
           if-no-files-found: error
           retention-days: 1
 
   build_windows_arm64:
-    name: 🟦 Windows ARM64 (Cross Compiled)
+    name: 🟦 Windows ARM64
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - { shell: powershell, run: . ./.github/setup/just/install.ps1 }
-      - { shell: powershell, run: . ./.github/setup/rust/install.ps1 }
+      - run: . ./.github/setup/just/install.ps1
+      - run: |
+          . ./.github/setup/rust/install.ps1
+          rustup target add aarch64-pc-windows-msvc
       - env: { os: "windows", arch: "arm64", profile: "release" }
         run: just build
       - uses: actions/upload-artifact@v4
         with:
           name: http-server-windows-arm64
-          path: ${{ github.workspace }}/artifacts/**/*
+          path: ${{ github.workspace }}/target/windows-arm64/**/*
           if-no-files-found: error
           retention-days: 1
 
@@ -126,17 +128,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
-          echo "Tag: ${TAG}"
+          ls -l
+          # TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
+          # echo "Tag: ${TAG}"
 
-          gh release create $TAG  --draft --notes "Automatically built binaries"
-          gh release edit $TAG --title "🚀 Latest"
+          # gh release create $TAG  --draft --notes "Automatically built binaries"
+          # gh release edit $TAG --title "🚀 Latest"
 
-          gh release upload $TAG http-server-linux-amd64/http-server-linux-amd64.tar.gz
-          gh release upload $TAG http-server-linux-arm64/http-server-linux-arm64.tar.gz
-          gh release upload $TAG http-server-macos-amd64/http-server-macos-amd64.tar.gz
-          gh release upload $TAG http-server-macos-arm64/http-server-macos-arm64.tar.gz
-          gh release upload $TAG http-server-windows-amd64/http-server-windows-amd64.tar.gz
-          gh release upload $TAG http-server-windows-arm64/http-server-windows-arm64.tar.gz
+          # gh release upload $TAG http-server-linux-amd64/http-server-linux-amd64.tar.gz
+          # gh release upload $TAG http-server-linux-arm64/http-server-linux-arm64.tar.gz
+          # gh release upload $TAG http-server-macos-amd64/http-server-macos-amd64.tar.gz
+          # gh release upload $TAG http-server-macos-arm64/http-server-macos-arm64.tar.gz
+          # gh release upload $TAG http-server-windows-amd64/http-server-windows-amd64.tar.gz
+          # gh release upload $TAG http-server-windows-arm64/http-server-windows-arm64.tar.gz
           
-          gh release edit $TAG --draft=false
+          # gh release edit $TAG --draft=false
