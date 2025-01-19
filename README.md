@@ -38,34 +38,52 @@ Options:
   -h, --help                     Print help
 ```
 
+## Watch Mode
+
+`http-server` under `--watch` mode can watch the served directory for changes and emit an event to the client notifying of a change. By default the server will intercept html files and inject a JavaScript script which subscribes to change events and triggers a page reload.
+
+```bash
+http-server --watch ./dist
+```
+
+To customize the reload functionality, disable the auto-inject script, manually subscribe to change events and trigger the desired functionality.
+
+```bash
+http-server --watch --no-watch-inject ./dist
+```
+
+```html
+<html>
+  <head>
+    <script>
+      new EventSource("/.http-server-rs/reload")
+        .onmessage = () => window.location.reload();
+    </script>
+  </head>
+  <body>
+    <script src="./app.js"></script>
+  </body>
+</html>
+```
+
 ## Installation
 
 ### MacOS & Linux
 
-#### Install & Update Script
-
-This will prompt you for the install path, run it again to update the version
-
-```shell
-curl -s "https://raw.githubusercontent.com/alshdavid/http-server-rs/main/scripts/install.sh" | sh
-```
-
-#### Manual
-
-Download the binary from the [latest GitHub release](https://github.com/alshdavid-labs/alshx/releases/latest) and add it to your `PATH`
+Download the binary from the [latest GitHub release](https://github.com/alshdavid/http-server-rs/releases/latest) and add it to your `PATH`
 
 ```shell
 # Linux AMD64
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # Linux ARM64
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/linux-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-linux-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # MacOS ARM64 (Apple Silicon)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin 
 
 # MacOS AMD64 (Intel)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/macos-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin --strip-components=1
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-macos-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # Add to PATH if not already there:
 echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
@@ -74,4 +92,4 @@ echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.bashrc
 
 ### Windows
 
-Download the binary from the [latest GitHub release](https://github.com/alshdavid-labs/alshx/releases/latest) and add it to your `PATH`
+Download the binary from the [latest GitHub release](https://github.com/alshdavid/http-server-rs/releases/latest) and add it to your `PATH`

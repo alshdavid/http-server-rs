@@ -1,0 +1,4 @@
+[submodule ".github/install-scripts"]
+	path = .github/install-scripts
+	url = https://github.com/alshdavid/install-scripts.git
+	branch = main

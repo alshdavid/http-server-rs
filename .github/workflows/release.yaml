@@ -15,8 +15,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: source ./.github/setup/just/install.bash
-      - run: source ./.github/setup/rust/install.bash
+        with: { submodules: true }
+      - run: source ./.github/install-scripts/just/main.ps1
+      - run: source ./.github/install-scripts/rust/main.ps1
       - run: just test
         
   format:
@@ -24,8 +25,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: source ./.github/setup/just/install.bash
-      - run: source ./.github/setup/rust/install.bash
+        with: { submodules: true }
+      - run: source ./.github/install-scripts/just/main.ps1
+      - run: source ./.github/install-scripts/rust/main.ps1
       - run: just fmt
         
   lint:
@@ -33,8 +35,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: source ./.github/setup/just/install.bash
-      - run: source ./.github/setup/rust/install.bash
+        with: { submodules: true }
+      - run: source ./.github/install-scripts/just/main.ps1
+      - run: source ./.github/install-scripts/rust/main.ps1
       - run: just lint
 
   build:
@@ -81,9 +84,10 @@ jobs:
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v4
-      - run: . ./.github/setup/just/main.ps1
+        with: { submodules: true }
+      - run: . ./.github/install-scripts/just/main.ps1
       - run: |
-          . ./.github/setup/rust/main.ps1
+          . ./.github/install-scripts/rust/main.ps1
           rustup target add ${{ matrix.config.rustup_target }}
       - env: 
           os: "${{ matrix.config.os }}"
