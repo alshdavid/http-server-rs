@@ -9,7 +9,6 @@ mod logger;
 mod utils;
 mod watcher;
 
-use std::convert::Infallible;
 use std::fs;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
@@ -17,12 +16,9 @@ use std::sync::Arc;
 use colored::Colorize;
 use explorer::reload_script;
 use explorer::render_directory_explorer;
-use futures::TryStreamExt;
 use http1::http1_server;
 use http1::Bytes;
-use http_body_util::combinators::BoxBody;
-use http_body_util::StreamBody;
-use hyper::body::Bytes as HyperBytes;
+use http1::ResponseBuilderExt;
 use logger::Logger;
 use logger::LoggerDefault;
 use logger::LoggerNoop;
@@ -110,14 +106,13 @@ async fn main_async() -> anyhow::Result<()> {
             );
           };
 
-          let (mut writer, reader) = tokio::io::duplex(512);
-
-          let reader_stream = tokio_util::io::ReaderStream::new(reader)
-            .map_ok(hyper::body::Frame::data)
-            .map_err(|_item| panic!());
-
-          let stream_body = StreamBody::new(reader_stream);
-          let boxed_body = BoxBody::<HyperBytes, Infallible>::new(stream_body); // = stream_body.boxed().into();
+          let (res, mut writer) = res
+            .header("X-Accel-Buffering", "no")
+            .header("Content-Type", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .header("Connection", "keep-alive")
+            .status(hyper::StatusCode::OK)
+            .body_stream()?;
 
           let mut rx = watcher.subscribe();
 
@@ -136,17 +131,6 @@ async fn main_async() -> anyhow::Result<()> {
               }
             }
           });
-
-          let Ok(res) = res
-            .header("X-Accel-Buffering", "no")
-            .header("Content-Type", "text/event-stream")
-            .header("Cache-Control", "no-cache")
-            .header("Connection", "keep-alive")
-            .status(hyper::StatusCode::OK)
-            .body(boxed_body)
-          else {
-            panic!();
-          };
 
           return Ok(res);
         }
