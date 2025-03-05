@@ -10,6 +10,7 @@ mod utils;
 mod watcher;
 
 use std::fs;
+use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
 
@@ -41,8 +42,8 @@ async fn main_async() -> anyhow::Result<()> {
   logger.println(&format!("📁 {}", config.serve_dir_fmt).bold());
   logger.print_config("Directory Listings", &true); // TODO
   logger.print_config("Watch", &config.watch); // TODO
-  logger.print_config("GZIP", &false); // TODO
-  logger.print_config("Brotli", &false); // TODO
+  logger.print_config("GZIP (from extension)", &true); // TODO
+  logger.print_config("Brotli (from extension)", &true); // TODO
 
   for (key, values) in config.headers.iter() {
     logger.print_config_str(key, &values.join(", "));
@@ -80,7 +81,7 @@ async fn main_async() -> anyhow::Result<()> {
 
       async move {
         // Remove the leading slash
-        let req_path = req.uri().path()[1..].to_string();
+        let req_path = req.uri().path().to_string().replacen("/", "", 1);
 
         // Guess the file path of the file to serve
         let mut file_path = config.serve_dir_abs.join(req_path.clone());
@@ -189,6 +190,17 @@ async fn main_async() -> anyhow::Result<()> {
           res = res.header("Content-Type", mime.to_string());
         }
 
+        let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
+        let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
+
+        if brotli_path.exists() {
+          file_path = brotli_path;
+          res = res.header("Content-Encoding", "br");
+        } else if gzip_path.exists() {
+          file_path = gzip_path;
+          res = res.header("Content-Encoding", "gzip");
+        }
+
         // Read file
         // TODO not sure why tokio file read doesn't work here
         let Ok(mut contents) = fs::read(&file_path) else {
@@ -205,7 +217,28 @@ async fn main_async() -> anyhow::Result<()> {
             .get("Content-Type")
             .is_some_and(|h| h == "text/html")
         {
-          contents.extend(format!("<script>{}</script>", reload_script()).as_bytes());
+          let html = String::from_utf8(contents.clone())?;
+          if html.contains("<head>") {
+            contents = html
+              .replacen(
+                "<head>",
+                &format!("<head>\n<script>{}</script>\n", reload_script(),),
+                1,
+              )
+              .as_bytes()
+              .to_vec();
+          } else if html.contains("<body>") {
+            contents = html
+              .replacen(
+                "<body>",
+                &format!("<body>\n<script>{}</script>\n", reload_script()),
+                1,
+              )
+              .as_bytes()
+              .to_vec();
+          } else {
+            contents.extend(format!("<script>{}</script>", reload_script()).as_bytes());
+          }
         }
 
         Ok(res.status(200).body_from(contents)?)

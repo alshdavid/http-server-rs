@@ -37,14 +37,16 @@ where
   tokio::task::spawn(async move {
     while let Some((req, tx_res)) = rx.recv().await {
       let res = Response::builder();
-      tx_res.send(handle_func(req, res).await).unwrap();
+      tx_res.send(handle_func(req, res).await).ok();
     }
   });
 
   loop {
     // let config = config.clone();
     let tx = tx.clone();
-    let (stream, _) = listener.accept().await.unwrap();
+    let Ok((stream, _)) = listener.accept().await else {
+      continue
+    };
     let io = TokioIo::new(stream);
 
     tokio::task::spawn({
@@ -66,13 +68,12 @@ where
                   };
                   let res = match res {
                     Ok(res) => res,
-                    Err(err) => Response::builder()
-                      .status(500)
-                      .body(BoxBody::new(Full::new(HyperBytes::from(format!(
-                        "{}",
-                        err
-                      )))))
-                      .unwrap(),
+                    Err(err) => match Response::builder().status(500).body(BoxBody::new(Full::new(
+                      HyperBytes::from(format!("{}", err)),
+                    ))) {
+                      Ok(r) => r,
+                      Err(_) => todo!(),
+                    },
                   };
 
                   Ok(res)
@@ -81,7 +82,7 @@ where
             }),
           )
           .await
-          .unwrap();
+          .ok();
       }
     });
   }
