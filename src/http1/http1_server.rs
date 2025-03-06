@@ -42,10 +42,9 @@ where
   });
 
   loop {
-    // let config = config.clone();
     let tx = tx.clone();
     let Ok((stream, _)) = listener.accept().await else {
-      continue
+      continue;
     };
     let io = TokioIo::new(stream);
 
