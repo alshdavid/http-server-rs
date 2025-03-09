@@ -11,10 +11,11 @@ Rewrite of the popular npm package [http-server](https://github.com/http-party/h
 http-server
 
 # Arguments
-http-server --no-cache --cors ./public
+# Enable CORS, reroute requests to index.html and automatically compress to brotli 
+http-server --cors --spa -Z ./public
 
 # Custom Headers
-http-server -H Cross-Origin-Opener-Policy:same-origin
+http-server -H X-Custom-Header:some-value
 ```
 
 ```
@@ -28,9 +29,10 @@ Options:
   -p, --port <PORT>              [default: 8080]
       --spa                      Redirect requests to /index.html for Single Page Applications
   -c, --cache-time <CACHE_TIME>  Cache control time [default: 0]
+  -Z, --compress                 Compress responses (JIT)
   -H, --header <HEADERS>         Custom headers (Format "key:value")
       --cors                     Enable CORS header
-      --no-cache                 Disable cache control header
+  -S, --shared-array-buffer      Enable headers for SharedArrayBuffer
   -Q, --quiet                    Don't print any logs to terminal
   -w, --watch                    Watch folder for changes and trigger a browser reload
       --watch-dir <WATCH_DIR>    Watch for changes [default: SERVE_DIR]

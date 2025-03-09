@@ -34,13 +34,9 @@ pub struct CliCommand {
   #[arg(long = "cors")]
   pub cors: bool,
 
-  /// Enable CORS header
+  /// Enable headers for SharedArrayBuffer
   #[arg(short = 'S', long = "shared-array-buffer")]
   pub sab: bool,
-
-  /// Disable cache control header
-  #[arg(long = "no-cache")]
-  pub no_cache: bool,
 
   /// Don't print any logs to terminal
   #[arg(short = 'Q', long = "quiet")]

@@ -89,7 +89,7 @@ impl Config {
       );
     }
 
-    if command.cache_time == 0 || command.no_cache {
+    if command.cache_time == 0 {
       headers.insert(
         "Cache-Control".to_string(),
         vec![format!("no-cache, no-store, must-revalidate")],
