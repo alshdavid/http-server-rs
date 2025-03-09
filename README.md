@@ -4,6 +4,8 @@ Rewrite of the popular npm package [http-server](https://github.com/http-party/h
 
 `http-server` is a simple, zero-configuration command-line static HTTP server. It is powerful enough for production usage, but it's simple and hackable enough to be used for testing, local development and learning.
 
+https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
+
 ## Usage
 
 ```bash
