@@ -4,28 +4,29 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.95"
-chrono = "0.4.39"
-clap = { version = "4.5.26", features = ["derive"] }
+anyhow = "1.0.97"
+chrono = "0.4.40"
+clap = { version = "4.5.31", features = ["derive"] }
 colored = "3.0.0"
 futures = "0.3.31"
-handlebars = "6.3.0"
+handlebars = "6.3.1"
 http = "1.2.0"
 http-body-util = "0.1.2"
-hyper = { version = "1.5.2", features = ["http1"] }
+hyper = { version = "1.6.0", features = ["http1"] }
 hyper-util = { version = "0.1.10", features = ["server-graceful"] }
 mime_guess = "2.0.5"
 normalize-path = "0.2.1"
 notify-debouncer-full = "0.5.0"
 num_cpus = "1.16.0"
 pathdiff = "0.2.3"
-serde_json = "1.0.136"
-tokio = { version = "1.43.0", features = ["rt-multi-thread"] }
+serde_json = "1.0.140"
+tokio = { version = "1.44.0", features = ["rt-multi-thread", "fs"] }
 tokio-util = { version = "0.7.13", features = [
   "io",
   "io-util",
   "futures-util",
 ] }
+brotli = "7.0.0"
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "0.1.4"

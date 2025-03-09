@@ -2,6 +2,7 @@
 #![allow(clippy::module_inception)]
 
 mod cli;
+mod compress;
 mod config;
 mod explorer;
 mod http1;
@@ -9,7 +10,6 @@ mod logger;
 mod utils;
 mod watcher;
 
-use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
@@ -40,6 +40,7 @@ async fn main_async() -> anyhow::Result<()> {
 
   logger.print_folder(&config.serve_dir_fmt);
   logger.print_config("Directory Listings", &true);
+  logger.print_config("Compress (JIT)", &config.compress);
   logger.print_config("CORS", &config.cors);
   logger.print_config("SharedArrayBuffer", &config.sab);
   logger.print_config("SPA", &config.spa);
@@ -166,11 +167,12 @@ async fn main_async() -> anyhow::Result<()> {
           );
         }
 
-        // 404 if no file exists
+        // If SPA and file doesn't exist, route to root index
         if config.spa && !file_path.exists() {
           file_path = config.serve_dir_abs.join("index.html");
         }
 
+        // If not SPA an file doesn't exist, route to 404.html
         if !config.spa && !file_path.exists() {
           file_path = config.serve_dir_abs.join("404.html");
         }
@@ -186,25 +188,29 @@ async fn main_async() -> anyhow::Result<()> {
           res = res.header("Content-Type", mime.to_string());
         }
 
-        let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
-        let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
+        // If a .br or .gz file is found next to the target, serve that file
+        if !config.compress {
+          let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
+          let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
 
-        if brotli_path.exists() {
-          file_path = brotli_path;
-          res = res.header("Content-Encoding", "br");
-        } else if gzip_path.exists() {
-          file_path = gzip_path;
-          res = res.header("Content-Encoding", "gzip");
+          if brotli_path.exists() {
+            file_path = brotli_path;
+            res = res.header("Content-Encoding", "br");
+          } else if gzip_path.exists() {
+            file_path = gzip_path;
+            res = res.header("Content-Encoding", "gzip");
+          }
         }
 
         // Read file
-        // TODO not sure why tokio file read doesn't work here
-        let Ok(mut contents) = fs::read(&file_path) else {
+        let Ok(mut contents) = tokio::fs::read(&file_path).await else {
           return Ok(res.status(500).body_from("Unable to open file")?);
         };
 
         logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
+        // If using watch mode and automatically injecting the reload script
+        // and file is html, mutate response to inject script
         if config.watch
           && !config.no_watch_inject
           && res
@@ -237,7 +243,12 @@ async fn main_async() -> anyhow::Result<()> {
           }
         }
 
-        Ok(res.status(200).body_from(contents)?)
+        if config.compress {
+          res = res.header("Content-Encoding", "br");
+          Ok(res.status(200).body_from(compress::brotli(&contents))?)
+        } else {
+          Ok(res.status(200).body_from(contents)?)
+        }
       }
     }
   })

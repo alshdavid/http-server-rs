@@ -22,6 +22,10 @@ pub struct CliCommand {
   #[arg(short = 'c', long = "cache-time", default_value = "0")]
   pub cache_time: usize,
 
+  /// Compress responses (JIT)
+  #[arg(short = 'Z', long = "compress")]
+  pub compress: bool,
+
   /// Custom headers (Format "key:value")
   #[arg(short = 'H', long = "header")]
   pub headers: Vec<String>,
