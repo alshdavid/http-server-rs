@@ -20,8 +20,6 @@ use explorer::render_directory_explorer;
 use http1::http1_server;
 use http1::ResponseBuilderExt;
 use logger::Logger;
-use logger::LoggerDefault;
-use logger::LoggerNoop;
 use mime_guess;
 use normalize_path::NormalizePath;
 use tokio::io::AsyncWriteExt;
@@ -32,34 +30,32 @@ use crate::config::Config;
 
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
-  let logger: Arc<dyn Logger> = match config.quiet {
-    true => Arc::new(LoggerNoop::default()),
-    false => Arc::new(LoggerDefault::default()),
+  let logger: Arc<Logger> = match config.quiet {
+    true => Arc::new(Logger::Quiet),
+    false => Arc::new(Logger::Default),
   };
 
-  logger.println(&"🚀 HTTP Server 🌏".green().bold());
+  logger.println("🚀 HTTP Server 🌏".green().bold().to_string());
   logger.br();
-  logger.println(&format!("📁 {}", config.serve_dir_fmt).bold());
-  logger.print_config("Directory Listings", &true); // TODO
-  logger.print_config("Watch", &config.watch); // TODO
-  logger.print_config("GZIP (from extension)", &true); // TODO
-  logger.print_config("Brotli (from extension)", &true); // TODO
 
-  for (key, values) in config.headers.iter() {
-    logger.print_config_str(key, &values.join(", "));
-  }
+  logger.print_folder(&config.serve_dir_fmt);
+  logger.print_config("Directory Listings", &true);
+  logger.print_config("CORS", &config.cors);
+  logger.print_config("SharedArrayBuffer", &config.sab);
+  logger.print_config("SPA", &config.spa);
+  logger.print_config("Watch", &config.watch);
   logger.br();
-  logger.println(&format!("🔗 http://{}", config.domain).bold().bright_white());
 
+  logger.print_headers(&config.headers);
+  logger.br();
+
+  logger.println(format!("🔗 http://{}", config.domain));
   if config.domain != config.domain_pretty {
-    logger.println(
-      &format!("🔗 http://{}", config.domain_pretty)
-        .bold()
-        .bright_white(),
-    );
+    logger.println(format!("🔗 http://{}", config.domain_pretty));
   }
   logger.br();
-  logger.println(&"📜 LOGS 📜".blue().bold());
+
+  logger.println("📜 LOGS 📜".bold().blue().to_string());
 
   let watcher = match config.watch {
     true => Some(Watcher::new(WatcherOptions {
@@ -138,7 +134,7 @@ async fn main_async() -> anyhow::Result<()> {
         // hyper handles preventing access to parent directories via "../../"
         // but this is an extra layer of protection
         if !file_path.normalize().starts_with(&config.serve_dir_abs) {
-          logger.println(&format!("{} {}", "[403]".red().bold(), req.uri()));
+          logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
           return Ok(res.status(403).body_from("Not allowed")?);
         }
 
@@ -181,7 +177,7 @@ async fn main_async() -> anyhow::Result<()> {
 
         // 404 if no file exists
         if !file_path.exists() {
-          logger.println(&format!("{} {}", "[404]".red().bold(), req.uri()));
+          logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
           return Ok(res.status(404).body_from("File not found")?);
         }
 
@@ -207,7 +203,7 @@ async fn main_async() -> anyhow::Result<()> {
           return Ok(res.status(500).body_from("Unable to open file")?);
         };
 
-        logger.println(&format!("{} {}", "[200]".green().bold(), req.uri()));
+        logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
         if config.watch
           && !config.no_watch_inject

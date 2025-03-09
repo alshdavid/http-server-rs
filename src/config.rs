@@ -16,6 +16,8 @@ pub struct Config {
   pub address: String,
   pub port: usize,
   pub spa: bool,
+  pub cors: bool,
+  pub sab: bool,
   pub domain: String,
   pub domain_pretty: String,
   pub headers: HashMap<String, Vec<String>>,
@@ -52,10 +54,37 @@ impl Config {
 
     let mut headers = HashMap::<String, Vec<String>>::new();
 
+    if command.sab {
+      headers.insert(
+        "Cross-Origin-Opener-Policy".to_string(),
+        vec!["same-origin".to_string()],
+      );
+
+      headers.insert(
+        "Cross-Origin-Embedder-Policy".to_string(),
+        vec!["require-corp".to_string()],
+      );
+    } else {
+      headers.insert(
+        "Cross-Origin-Opener-Policy".to_string(),
+        vec!["unsafe-none".to_string()],
+      );
+
+      headers.insert(
+        "Cross-Origin-Embedder-Policy".to_string(),
+        vec!["unsafe-none".to_string()],
+      );
+    }
+
     if command.cors {
       headers.insert(
         "Access-Control-Allow-Origin".to_string(),
         vec!["*".to_string()],
+      );
+    } else {
+      headers.insert(
+        "Access-Control-Allow-Origin".to_string(),
+        vec!["null".to_string()],
       );
     }
 
@@ -86,6 +115,8 @@ impl Config {
       domain,
       domain_pretty,
       spa: command.spa,
+      cors: command.cors,
+      sab: command.sab,
       address: command.address,
       port: command.port,
       headers,

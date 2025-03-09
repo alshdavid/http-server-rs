@@ -104,3 +104,7 @@ watch *ARGS:
 
 watch-silent *ARGS:
   cargo watch -- bash -c "just build && clear; {{out_dir}}/http-server {{ARGS}}"
+
+reinstall:
+  just build
+  cp {{out_dir}}/{{project_name}} $(which http-server-rs)

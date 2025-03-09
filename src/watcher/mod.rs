@@ -18,7 +18,7 @@ use crate::utils::broadcast::BroadcastChannel;
 
 pub struct WatcherOptions {
   pub target_dir: PathBuf,
-  pub logger: Arc<dyn Logger>,
+  pub logger: Arc<Logger>,
 }
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl Watcher {
           }
 
           if !paths.is_empty() {
-            logger.println(&format!("{}", "[CNG] ".yellow().bold()));
+            logger.println(format!("{}", "[CNG] ".yellow().bold()));
             trx_watch.send(paths).unwrap();
           }
         }
