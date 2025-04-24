@@ -27,6 +27,7 @@ tokio-util = { version = "0.7.13", features = [
   "futures-util",
 ] }
 brotli = "7.0.0"
+urlencoding = "2.1.3"
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "0.1.4"

@@ -10,6 +10,7 @@ mod logger;
 mod utils;
 mod watcher;
 
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
@@ -22,6 +23,8 @@ use http1::ResponseBuilderExt;
 use logger::Logger;
 use mime_guess;
 use normalize_path::NormalizePath;
+use tokio::fs::File;
+use tokio::io;
 use tokio::io::AsyncWriteExt;
 use watcher::Watcher;
 use watcher::WatcherOptions;
@@ -79,6 +82,8 @@ async fn main_async() -> anyhow::Result<()> {
       async move {
         // Remove the leading slash
         let req_path = req.uri().path().to_string().replacen("/", "", 1);
+        let req_path = urlencoding::decode(&req_path)?.to_string();
+
 
         // Guess the file path of the file to serve
         let mut file_path = config.serve_dir_abs.join(req_path.clone());
@@ -184,8 +189,9 @@ async fn main_async() -> anyhow::Result<()> {
         }
 
         // Apply mime type
-        if let Some(mime) = self::mime_guess::from_path(&file_path).first() {
-          res = res.header("Content-Type", mime.to_string());
+        let mime= self::mime_guess::from_path(&file_path).first().map(|v| v.to_string()).unwrap_or_default();
+        if mime != "" {
+          res = res.header("Content-Type", &mime);
         }
 
         // If a .br or .gz file is found next to the target, serve that file
@@ -202,12 +208,31 @@ async fn main_async() -> anyhow::Result<()> {
           }
         }
 
+        let mut file = File::open(&file_path).await?;
+        let content_length = file.metadata().await?.size();
+
+        logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
         // Read file
+        // Stream file if it's larger than 5mb
+        if !mime.starts_with("text/html") && content_length > 500_000 {
+          let (res, mut writer) = res
+            .header("Connection", "keep-alive")
+            .header("Content-Length", content_length)
+            .status(hyper::StatusCode::OK)
+            .body_stream()?;
+
+          tokio::task::spawn(async move {
+            io::copy(&mut file, &mut writer).await.ok();
+          });
+
+          return Ok(res)
+        }
+
         let Ok(mut contents) = tokio::fs::read(&file_path).await else {
           return Ok(res.status(500).body_from("Unable to open file")?);
         };
 
-        logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
         // If using watch mode and automatically injecting the reload script
         // and file is html, mutate response to inject script
