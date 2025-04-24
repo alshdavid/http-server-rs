@@ -10,10 +10,10 @@ mod logger;
 mod utils;
 mod watcher;
 
-#[cfg(windows)]
-use std::os::windows::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
@@ -86,7 +86,6 @@ async fn main_async() -> anyhow::Result<()> {
         // Remove the leading slash
         let req_path = req.uri().path().to_string().replacen("/", "", 1);
         let req_path = urlencoding::decode(&req_path)?.to_string();
-
 
         // Guess the file path of the file to serve
         let mut file_path = config.serve_dir_abs.join(req_path.clone());
@@ -192,8 +191,11 @@ async fn main_async() -> anyhow::Result<()> {
         }
 
         // Apply mime type
-        let mime= self::mime_guess::from_path(&file_path).first().map(|v| v.to_string()).unwrap_or_default();
-        if mime != "" {
+        let mime = self::mime_guess::from_path(&file_path)
+          .first()
+          .map(|v| v.to_string())
+          .unwrap_or_default();
+        if !mime.is_empty() {
           res = res.header("Content-Type", &mime);
         }
 
@@ -212,7 +214,7 @@ async fn main_async() -> anyhow::Result<()> {
         }
 
         let mut file = File::open(&file_path).await?;
-        
+
         #[cfg(unix)]
         let content_length = file.metadata().await?.size();
         #[cfg(windows)]
@@ -233,13 +235,12 @@ async fn main_async() -> anyhow::Result<()> {
             io::copy(&mut file, &mut writer).await.ok();
           });
 
-          return Ok(res)
+          return Ok(res);
         }
 
         let Ok(mut contents) = tokio::fs::read(&file_path).await else {
           return Ok(res.status(500).body_from("Unable to open file")?);
         };
-
 
         // If using watch mode and automatically injecting the reload script
         // and file is html, mutate response to inject script

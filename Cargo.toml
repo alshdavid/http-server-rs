@@ -3,6 +3,14 @@ name = "http-server"
 version = "0.1.0"
 edition = "2021"
 
+[lints.rust]
+elided_lifetimes_in_paths = "allow"
+rust_2018_idioms = { priority = -1, level = "deny" }
+
+[lints.clippy]
+module_inception = "allow"
+uninlined-format-args = "allow"
+
 [dependencies]
 anyhow = "1.0.98"
 chrono = "0.4.40"
