@@ -10,6 +10,9 @@ mod logger;
 mod utils;
 mod watcher;
 
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
+#[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
@@ -209,7 +212,11 @@ async fn main_async() -> anyhow::Result<()> {
         }
 
         let mut file = File::open(&file_path).await?;
+        
+        #[cfg(unix)]
         let content_length = file.metadata().await?.size();
+        #[cfg(windows)]
+        let content_length = file.metadata().await?.file_size();
 
         logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
