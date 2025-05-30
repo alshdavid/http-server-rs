@@ -17,6 +17,7 @@ use std::os::windows::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
+use std::net::UdpSocket;
 
 use colored::Colorize;
 use explorer::reload_script;
@@ -35,6 +36,26 @@ use watcher::WatcherOptions;
 use crate::config::Config;
 
 const DEFAULT_CHARSET_SUFFIX: &str = "charset=UTF-8";
+
+
+// copy from https://github.com/egmkang/local_ipaddress/blob/master/src/lib.rs
+// Todo: need all ips use https://crates.io/crates/local-ip-address
+fn get_intranet_ip() -> Option<String> {
+  let socket = match UdpSocket::bind("0.0.0.0:0") {
+    Ok(s) => s,
+    Err(_) => return None,
+  };
+
+  match socket.connect("8.8.8.8:80") {
+    Ok(()) => (),
+    Err(_) => return None,
+  };
+
+  match socket.local_addr() {
+    Ok(addr) => return Some(addr.ip().to_string()),
+    Err(_) => return None,
+  };
+}
 
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
@@ -62,6 +83,17 @@ async fn main_async() -> anyhow::Result<()> {
   if config.domain != config.domain_pretty {
     logger.println(format!("🔗 http://{}", config.domain_pretty));
   }
+
+  // print intranet ip domain
+  // Todo address bind to local ip 127.0.0.1 skip print?
+  let intranet_domain = get_intranet_ip();
+  if intranet_domain.is_some() {
+    let intranet_domain_str = intranet_domain.as_ref().unwrap();
+    if intranet_domain_str != &config.domain_pretty && intranet_domain_str != &config.domain {
+      logger.println(format!("🔗 http://{}:{}", intranet_domain_str, config.port));
+    }
+  }
+
   logger.br();
 
   logger.println("📜 LOGS 📜".bold().blue().to_string());
