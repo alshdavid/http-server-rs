@@ -26,6 +26,7 @@ pub struct Config {
   pub watch: bool,
   pub watch_dir: PathBuf,
   pub no_watch_inject: bool,
+  pub stream_buffer_size: usize,
 }
 
 impl Config {
@@ -126,6 +127,7 @@ impl Config {
       watch: command.watch,
       watch_dir: command.watch_dir.unwrap_or(serve_dir_abs),
       no_watch_inject: command.no_watch_inject,
+      stream_buffer_size: command.stream_buffer_size,
     })
   }
 }

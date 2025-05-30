@@ -12,8 +12,10 @@ use tokio::io::DuplexStream;
 use super::Bytes;
 
 pub trait ResponseBuilderExt {
-  fn body_stream(self)
-    -> HttpResult<(HttpResponse<BoxBody<HyperBytes, Infallible>>, DuplexStream)>;
+  fn body_stream(
+    self,
+    stream_buffer_size: usize,
+  ) -> HttpResult<(HttpResponse<BoxBody<HyperBytes, Infallible>>, DuplexStream)>;
   fn body_from(
     self,
     bytes: impl Into<Bytes>,
@@ -22,9 +24,10 @@ pub trait ResponseBuilderExt {
 
 impl ResponseBuilderExt for ResponseBuilder {
   fn body_stream(
-    self
+    self,
+    stream_buffer_size: usize,
   ) -> HttpResult<(HttpResponse<BoxBody<HyperBytes, Infallible>>, DuplexStream)> {
-    let (writer, reader) = tokio::io::duplex(512);
+    let (writer, reader) = tokio::io::duplex(stream_buffer_size);
 
     let reader_stream = tokio_util::io::ReaderStream::new(reader)
       .map_ok(hyper::body::Frame::data)

@@ -53,4 +53,8 @@ pub struct CliCommand {
   /// Don't automatically inject watch listener into html
   #[arg(long = "no-watch-inject")]
   pub no_watch_inject: bool,
+
+  /// Configure the buffer size when streaming files
+  #[arg(long = "stream-buffer-size", default_value = "4000")]
+  pub stream_buffer_size: usize,
 }

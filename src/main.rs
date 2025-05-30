@@ -100,7 +100,10 @@ async fn main_async() -> anyhow::Result<()> {
 
           return Ok(
             res
-              .header("Content-Type", format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX))
+              .header(
+                "Content-Type",
+                format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX),
+              )
               .status(200)
               .body_from(reload_script())?,
           );
@@ -114,11 +117,14 @@ async fn main_async() -> anyhow::Result<()> {
 
           let (res, mut writer) = res
             .header("X-Accel-Buffering", "no")
-            .header("Content-Type", format!("text/event-stream; {}", DEFAULT_CHARSET_SUFFIX))
+            .header(
+              "Content-Type",
+              format!("text/event-stream; {}", DEFAULT_CHARSET_SUFFIX),
+            )
             .header("Cache-Control", "no-cache")
             .header("Connection", "keep-alive")
             .status(hyper::StatusCode::OK)
-            .body_stream()?;
+            .body_stream(config.stream_buffer_size)?;
 
           let mut rx = watcher.subscribe();
 
@@ -171,7 +177,10 @@ async fn main_async() -> anyhow::Result<()> {
           // Todo check file charset
           return Ok(
             res
-              .header("Content-Type", format!("text/html;{}", DEFAULT_CHARSET_SUFFIX))
+              .header(
+                "Content-Type",
+                format!("text/html;{}", DEFAULT_CHARSET_SUFFIX),
+              )
               .status(200)
               .body_from(output)?,
           );
@@ -201,9 +210,10 @@ async fn main_async() -> anyhow::Result<()> {
         if !mime.is_empty() {
           let mut content_type = mime.clone();
           // mime starts with "text/" or "application/"
-          if content_type.starts_with("text/") ||
-            content_type.starts_with("application/javascript") ||
-            content_type.starts_with("application/json") {
+          if content_type.starts_with("text/")
+            || content_type.starts_with("application/javascript")
+            || content_type.starts_with("application/json")
+          {
             // Todo check file charset
             content_type = format!("{}; {}", content_type, DEFAULT_CHARSET_SUFFIX);
           }
@@ -240,7 +250,7 @@ async fn main_async() -> anyhow::Result<()> {
             .header("Connection", "keep-alive")
             .header("Content-Length", content_length)
             .status(hyper::StatusCode::OK)
-            .body_stream()?;
+            .body_stream(config.stream_buffer_size)?;
 
           tokio::task::spawn(async move {
             io::copy(&mut file, &mut writer).await.ok();
