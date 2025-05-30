@@ -34,6 +34,8 @@ use watcher::WatcherOptions;
 
 use crate::config::Config;
 
+const DEFAULT_CHARSET_SUFFIX: &str = "charset=UTF-8";
+
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
   let logger: Arc<Logger> = match config.quiet {
@@ -98,7 +100,7 @@ async fn main_async() -> anyhow::Result<()> {
 
           return Ok(
             res
-              .header("Content-Type", "application/javascript")
+              .header("Content-Type", format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX))
               .status(200)
               .body_from(reload_script())?,
           );
@@ -112,7 +114,7 @@ async fn main_async() -> anyhow::Result<()> {
 
           let (res, mut writer) = res
             .header("X-Accel-Buffering", "no")
-            .header("Content-Type", "text/event-stream")
+            .header("Content-Type", format!("text/event-stream; {}", DEFAULT_CHARSET_SUFFIX))
             .header("Cache-Control", "no-cache")
             .header("Connection", "keep-alive")
             .status(hyper::StatusCode::OK)
@@ -166,9 +168,10 @@ async fn main_async() -> anyhow::Result<()> {
             output = format!("{}\n<script>{}</script>", output, reload_script());
           }
 
+          // Todo check file charset
           return Ok(
             res
-              .header("Content-Type", "text/html")
+              .header("Content-Type", format!("text/html;{}", DEFAULT_CHARSET_SUFFIX))
               .status(200)
               .body_from(output)?,
           );
@@ -196,7 +199,15 @@ async fn main_async() -> anyhow::Result<()> {
           .map(|v| v.to_string())
           .unwrap_or_default();
         if !mime.is_empty() {
-          res = res.header("Content-Type", &mime);
+          let mut content_type = mime.clone();
+          // mime starts with "text/" or "application/"
+          if content_type.starts_with("text/") ||
+            content_type.starts_with("application/javascript") ||
+            content_type.starts_with("application/json") {
+            // Todo check file charset
+            content_type = format!("{}; {}", content_type, DEFAULT_CHARSET_SUFFIX);
+          }
+          res = res.header("Content-Type", &content_type);
         }
 
         // If a .br or .gz file is found next to the target, serve that file
@@ -250,7 +261,7 @@ async fn main_async() -> anyhow::Result<()> {
             .headers_ref()
             .unwrap()
             .get("Content-Type")
-            .is_some_and(|h| h == "text/html")
+            .is_some_and(|h| h.to_str().unwrap_or("").starts_with("text/html"))
         {
           let html = String::from_utf8(contents.clone())?;
           if html.contains("<head>") {
