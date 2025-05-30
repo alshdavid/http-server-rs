@@ -38,8 +38,9 @@ impl Config {
 
     let domain = format!("{}:{}", command.address, command.port);
     let mut domain_pretty = domain.clone();
-    if command.address == "0.0.0.0" {
-      domain_pretty = format!("localhost:{}", command.port)
+    if command.address == "0.0.0.0" || command.address == "::" {
+      // 127.0.0.1 is more stable, localhost it's possible user change hosts file
+      domain_pretty = format!("127.0.0.1:{}", command.port)
     }
 
     let serve_dir_abs: PathBuf;
