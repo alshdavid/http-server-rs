@@ -82,12 +82,10 @@ jobs:
     runs-on: ${{ matrix.config.runner }}
     steps:
       - uses: actions/checkout@v4
-      - shell: bash
-        run: uname -a
-      - shell: bash
-        run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
-      - shell: bash
-        run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
+      - run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
+        shell: bash
+      - run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
+        shell: bash
       - if: matrix.config.run
         run: ${{ matrix.config.run }}
       - env:
