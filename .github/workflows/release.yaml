@@ -83,6 +83,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - shell: bash
+        run: uname -a
+      - shell: bash
         run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
       - shell: bash
         run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
