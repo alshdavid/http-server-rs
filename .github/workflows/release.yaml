@@ -4,6 +4,10 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 on:
   push:
     branches:
@@ -83,9 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
-        shell: bash
       - run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
-        shell: bash
       - if: matrix.config.run
         run: ${{ matrix.config.run }}
       - env:
