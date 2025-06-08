@@ -18,7 +18,7 @@ jobs:
     name: 🧪 Test
     runs-on: ubuntu-24.04
     steps:
-      - { uses: actions/checkout@v4, with: { submodules: true } }
+      - uses: actions/checkout@v4
       - run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
       - run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
       - run: just test
@@ -27,7 +27,7 @@ jobs:
     name: 📝 Format
     runs-on: ubuntu-24.04
     steps:
-      - { uses: actions/checkout@v4, with: { submodules: true } }
+      - uses: actions/checkout@v4
       - run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
       - run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
       - run: just fmt
@@ -36,7 +36,7 @@ jobs:
     name: 🤓 Lint
     runs-on: ubuntu-24.04
     steps:
-      - { uses: actions/checkout@v4, with: { submodules: true } }
+      - uses: actions/checkout@v4
       - run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
       - run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
       - run: just lint
@@ -81,9 +81,11 @@ jobs:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.runner }}
     steps:
-      - { uses: actions/checkout@v4, with: { submodules: true } }
-      - run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
-      - run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: eval $(curl -sSf sh.davidalsh.com/just.sh | sh)
+      - shell: bash
+        run: eval $(curl -sSf sh.davidalsh.com/rust.sh | sh)
       - if: matrix.config.run
         run: ${{ matrix.config.run }}
       - env:
