@@ -22,6 +22,7 @@ pub struct Config {
   pub domain: String,
   pub domain_pretty: String,
   pub headers: HashMap<String, Vec<String>>,
+  pub basic_auth: HashMap<String, String>,
   pub quiet: bool,
   pub watch: bool,
   pub watch_dir: PathBuf,
@@ -79,6 +80,17 @@ impl Config {
       );
     }
 
+    let mut basic_auth = HashMap::<String, String>::new();
+
+    for val in command.basic_auth {
+      let Some((key, value)) = val.split_once(":") else {
+        return Err(anyhow::anyhow!("Unable to parse auth"));
+      };
+      let key = key.to_string();
+      let value = value.to_string();
+      basic_auth.insert(key, value);
+    }
+
     if command.cors {
       headers.insert(
         "Access-Control-Allow-Origin".to_string(),
@@ -122,6 +134,7 @@ impl Config {
       compress: command.compress,
       sab: command.sab,
       address: command.address,
+      basic_auth,
       port: command.port,
       headers,
       quiet: command.quiet,

@@ -97,8 +97,6 @@ fmt:
 fmt_fix *ARGS:
   cargo +nightly fmt
 
-
-
 watch *ARGS:
   cargo watch --watch src -- just run {{ARGS}}
 

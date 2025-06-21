@@ -1,6 +1,8 @@
 #![deny(unused_crate_dependencies)]
 #![allow(clippy::module_inception)]
 
+mod auth;
+mod b64;
 mod cli;
 mod compress;
 mod config;
@@ -118,6 +120,39 @@ async fn main_async() -> anyhow::Result<()> {
       let watcher = watcher.clone();
 
       async move {
+        // Basic Auth
+        if !config.basic_auth.is_empty() {
+          let Some(header) = req.headers().get("authorization") else {
+            return Ok(
+              res
+                .header(
+                  "WWW-Authenticate",
+                  "Basic realm=\"http-server-rs\"".to_string(),
+                )
+                .status(401)
+                .body_from("")?,
+            );
+          };
+
+          let Some((_, token)) = header.to_str()?.split_once(" ") else {
+            return Ok(res.status(500).body_from("Invalid basic auth header")?);
+          };
+
+          let decoded = b64::decode_string(token)?;
+
+          let Some((username, password)) = decoded.split_once(":") else {
+            return Ok(res.status(500).body_from("Invalid basic auth header")?);
+          };
+
+          let Some(creds) = config.basic_auth.get(username) else {
+            return Ok(res.status(403).body_from("")?);
+          };
+
+          if creds != password {
+            return Ok(res.status(403).body_from("")?);
+          }
+        }
+
         // Remove the leading slash
         let req_path = req.uri().path().to_string().replacen("/", "", 1);
         let req_path = urlencoding::decode(&req_path)?.to_string();

@@ -30,6 +30,10 @@ pub struct CliCommand {
   #[arg(short = 'H', long = "header")]
   pub headers: Vec<String>,
 
+  /// Put server behind basic auth (Format "username:password")
+  #[arg(long = "auth")]
+  pub basic_auth: Vec<String>,
+
   /// Enable CORS header
   #[arg(long = "cors")]
   pub cors: bool,
