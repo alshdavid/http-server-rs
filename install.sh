@@ -60,9 +60,13 @@ mkdir -p $OUT_DIR
 
 if [ -z "${URL##*.tar.gz}" ]; then
   curl -s -L --url $URL | tar -xzf - -C $OUT_DIR
+  chmod +x $OUT_DIR/http-server*
 fi
 
 echo "export PATH=\"${OUT_DIR}:\$PATH\""
+>&2 echo "======="
+>&2 echo "Add this to \$PATH"
+>&2 echo "  export PATH=\"${OUT_DIR}:\$PATH\""
 
 if [ "$GITHUB_PATH" != "" ]; then
   echo "${OUT_DIR}" >> $GITHUB_PATH
