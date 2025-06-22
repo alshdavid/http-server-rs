@@ -8,13 +8,17 @@ https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
 
 ## Installation
 
+### NPM
+
 ```bash
+# Rerun to update
 npm install -g http-server-rs
 ```
 
-Or using a binary install script
+### Binary Install Script
 
 ```bash
+# Rerun to update
 eval $(curl -sSf https://raw.githubusercontent.com/alshdavid/http-server-rs/refs/heads/main/install.sh | sh)
 ```
 
