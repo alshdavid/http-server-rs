@@ -6,6 +6,18 @@ Rewrite of the popular npm package [http-server](https://github.com/http-party/h
 
 https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
 
+## Installation
+
+```bash
+npm install -g http-server-rs
+```
+
+Or using a binary install script
+
+```bash
+eval $(curl -sSf https://raw.githubusercontent.com/alshdavid/http-server-rs/refs/heads/main/install.sh | sh)
+```
+
 ## Usage
 
 ```bash
