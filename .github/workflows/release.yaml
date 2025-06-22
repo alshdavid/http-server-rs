@@ -18,6 +18,27 @@ env:
   JUST_VERSION: "1.36.0"
 
 jobs:
+  vars:
+    name: "📋 Generate Variables"
+    runs-on: ubuntu-24.04
+    outputs:
+      NPM_VER: ${{ steps.tag.outputs.NPM_VER }}
+      GH_TAG: ${{ steps.tag.outputs.GH_TAG }}
+    steps:
+      - run: eval $(curl -sSf sh.davidalsh.com/nodejs.sh | sh)
+      - id: tag
+        run: |
+          declare -i var=$(npm info http-server-rs version | cut -d "." -f 3)
+          var=$var+1
+          NPM_VER="0.0.$var"
+
+          GH_TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
+
+          echo NPM_VER: $NPM_VER
+          echo GH_TAG:$GH_TAG
+          echo "NPM_VER=$NPM_VER" >> "$GITHUB_OUTPUT"
+          echo "GH_TAG=$GH_TAG" >> "$GITHUB_OUTPUT"
+
   test:
     name: 🧪 Test
     runs-on: ubuntu-24.04
@@ -106,6 +127,7 @@ jobs:
     name: "🔄 Publish Github Release"
     runs-on: ubuntu-24.04
     needs:
+      - vars
       - test
       - format
       - lint
@@ -116,22 +138,48 @@ jobs:
         with: { path: artifacts }
       - name: Publish` Github Release
         env:
+          GH_TAG: ${{needs.vars.outputs.GH_TAG}}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
 
-          TAG="$(date -u +"v%Y.%m.%d.%H%M").${GITHUB_SHA::4}"
-          echo "Tag: ${TAG}"
+          echo "Tag: ${GH_TAG}"
 
-          gh release create $TAG  --draft --notes "Automatically built binaries"
-          gh release edit $TAG --title "🚀 Latest"
+          gh release create $GH_TAG  --draft --notes "Automatically built binaries"
+          gh release edit $GH_TAG --title "🚀 Latest"
 
           cd artifacts
 
           for name in *; do
             cd "${{ github.workspace }}/artifacts/${name}/release"
             tar -czvf ./${name}.tar.gz ./*
-            gh release upload $TAG ${name}.tar.gz
+            gh release upload $GH_TAG ${name}.tar.gz
           done
 
-          gh release edit $TAG --draft=false
+          gh release edit $GH_TAG --draft=false
+
+  publish-npm-package:
+    name: "🔄 Publish NPM Package"
+    runs-on: ubuntu-24.04
+    needs:
+      - vars
+      - test
+      - format
+      - lint
+      - build
+    steps:
+      - uses: actions/checkout@v4
+      - run: eval $(curl -sSf sh.davidalsh.com/nodejs.sh | sh)
+      - env:
+          GH_TAG: ${{needs.vars.outputs.GH_TAG}}
+          NPM_VER: ${{needs.vars.outputs.NPM_VER}}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> $HOME/.npmrc
+          echo "GH_TAG: ${GH_TAG}"
+          echo "NPM_VER: ${NPM_VER}"
+          node .github/scripts/string-replace.mjs ./npm/package.json "0.0.0-local" "$NPM_VER"
+          cp ./README.md ./npm/README.md
+          cd npm
+          echo "$GH_TAG" > tag
+          npm publish --access=public
