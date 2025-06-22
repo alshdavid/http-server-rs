@@ -49,6 +49,12 @@ else if \
 else \
   { "--target " + target } 
 
+bin_name := \
+  if \
+    os == "windows" { project_name + ".exe" } \
+  else \
+    { project_name }
+
 out_dir :=  join(justfile_directory(), "target", os + "-" + arch, profile)
 out_dir_link :=  join(justfile_directory(), "target", profile)
 
@@ -60,15 +66,9 @@ build:
   @cp "./target/.cargo/{{target}}/{{profile}}/{{project_name}}" "{{out_dir}}"
   @# ln -rs "{{out_dir}}" "{{out_dir_link}}"
 
-[unix]
 run *ARGS:
   just build
-  {{out_dir}}/{{project_name}} {{ARGS}}
-
-[windows]
-run *ARGS:
-  just build
-  {{out_dir}}/{{project_name}}.exe {{ARGS}}
+  {{out_dir}}/{{bin_name}} {{ARGS}}
 
 test:
   cargo test
