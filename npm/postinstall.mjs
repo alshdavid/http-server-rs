@@ -80,9 +80,12 @@ async function downloadBin() {
   file.pipe(writable);
   await new Promise((res) => writable.on("close", res));
 
-  await fs.promises.rm(__bin, { recursive: true, force: true });
+  if (fs.existsSync(__bin)) {
+    await fs.promises.rm(__bin, { recursive: true, force: true });
+  }
+
   if (fs.existsSync(__bin_unix)) {
     await fs.promises.rename(__bin_unix, __bin);
+    await fs.promises.chmod(__bin, "755");
   }
-  await fs.promises.chmod(__bin, "755");
 }
