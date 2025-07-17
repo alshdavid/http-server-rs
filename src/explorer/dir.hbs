@@ -22,6 +22,9 @@
 
     .size {
       padding: 0 8px;
+      text-align: right;
+      display: block;
+      white-space: pre;
     }
 
     i.icon.directory {
@@ -310,7 +313,7 @@
         <td><i class="icon {{this.0}} blank"></i></td>
         <td><code>({{this.1}})</code></td>
         <td>{{this.2}}</td>
-        <td><code class="size">{{this.3}}B</code></td>
+        <td><code class="size">{{this.3}}</code></td>
         <td><a href="/{{this.4}}">{{this.5}}</a></td>
       </tr>
       {{/each}}

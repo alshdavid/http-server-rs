@@ -9,5 +9,19 @@ pub fn get_meta_mode(meta: &Metadata) -> String {
 }
 
 pub fn get_meta_size(meta: &Metadata) -> String {
-  format!("{}", meta.size())
+  let size = meta.size();
+  if size >= 1000 {
+    return format!("{} kb", meta.size() / 1000);
+  }
+  if size >= (1000 * 1000) {
+    return format!("{} mb", meta.size() / (1000 * 1000));
+  }
+  if size >= (1000 * 1000 * 1000) {
+    return format!("{} gb", meta.size() / (1000 * 1000 * 1000));
+  }
+  if size >= (1000 * 1000 * 1000 * 1000) {
+    return format!("{} tb", meta.size() / (1000 * 1000 * 1000 * 1000));
+  }
+
+  format!("{} b ", size)
 }

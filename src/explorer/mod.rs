@@ -37,7 +37,7 @@ pub fn render_directory_explorer(
   file_path: &Path,
 ) -> anyhow::Result<String> {
   let dir_path = PathBuf::from(file_path);
-  let dir = self::fs::read_dir(&dir_path)?;
+  let dir = fs::read_dir(&dir_path)?;
   let mut files = Vec::<(String, String, String, String, String, String)>::new();
   let mut folders = Vec::<(String, String, String, String)>::new();
 
@@ -104,6 +104,9 @@ pub fn render_directory_explorer(
       parent = Some(format!("/{}", diff_str));
     }
   }
+
+  folders.sort_by(|a, b| a.3.to_lowercase().cmp(&b.3.to_lowercase()));
+  files.sort_by(|a, b| a.5.to_lowercase().cmp(&b.5.to_lowercase()));
 
   let handlebars = Handlebars::new();
   let Ok(output) = handlebars.render_template(
