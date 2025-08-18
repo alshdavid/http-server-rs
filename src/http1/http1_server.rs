@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 use std::future::Future;
+use std::sync::Arc;
 
 use http_body_util::combinators::BoxBody;
 use http_body_util::Full;
@@ -13,9 +14,6 @@ use hyper::Response;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::net::ToSocketAddrs;
-use tokio::sync::mpsc::unbounded_channel;
-use tokio::sync::oneshot::channel as oneshot_channel;
-use tokio::sync::oneshot::Sender as OneshotSender;
 
 /// Simple wrapper around hyper to make it a little nicer to use
 pub async fn http1_server<F, Fut, A>(
@@ -24,65 +22,48 @@ pub async fn http1_server<F, Fut, A>(
 ) -> anyhow::Result<()>
 where
   A: ToSocketAddrs,
-  F: 'static + Send + Fn(Request<Incoming>, ResponseBuilder) -> Fut,
+  F: 'static + Send + Sync + Fn(Request<Incoming>, ResponseBuilder) -> Fut,
   Fut: Send + Future<Output = anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>>>,
 {
   let listener = TcpListener::bind(&addr).await?;
-
-  let (tx, mut rx) = unbounded_channel::<(
-    Request<Incoming>,
-    OneshotSender<anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>>>,
-  )>();
-
-  tokio::task::spawn(async move {
-    while let Some((req, tx_res)) = rx.recv().await {
-      let res = Response::builder();
-      tx_res.send(handle_func(req, res).await).ok();
-    }
-  });
+  let handler_func_ref = Arc::new(handle_func);
 
   loop {
-    let tx = tx.clone();
     let Ok((stream, _)) = listener.accept().await else {
       continue;
     };
     let io = TokioIo::new(stream);
+    let handler_func_ref = handler_func_ref.clone();
 
-    tokio::task::spawn({
-      async move {
-        http1::Builder::new()
-          .serve_connection(
-            io,
-            service_fn({
-              move |req| {
-                let tx = tx.clone();
+    tokio::task::spawn(async move {
+      let service_builder = http1::Builder::new();
+      let service_handler = service_fn(move |req| {
+        let fut = handler_func_ref(req, Response::builder());
 
-                async move {
-                  let (tx_rex, rx_res) = oneshot_channel();
-                  if let Err(_err) = tx.send((req, tx_rex)) {
-                    return Err("Unable to handle request".to_string());
-                  };
-                  let Ok(res) = rx_res.await else {
-                    return Err("Unable to handle request".to_string());
-                  };
-                  let res = match res {
-                    Ok(res) => res,
-                    Err(err) => match Response::builder().status(500).body(BoxBody::new(Full::new(
-                      HyperBytes::from(format!("{}", err)),
-                    ))) {
-                      Ok(r) => r,
-                      Err(_) => todo!(),
-                    },
-                  };
+        async move {
+          let handler_response = match fut.await {
+            Ok(handler_response) => handler_response,
+            Err(handler_error) => handle_error(handler_error),
+          };
 
-                  Ok(res)
-                }
-              }
-            }),
-          )
-          .await
-          .ok();
-      }
+          Ok::<Response<BoxBody<HyperBytes, Infallible>>, anyhow::Error>(handler_response)
+        }
+      });
+
+      service_builder
+        .serve_connection(io, service_handler)
+        .await
+        .ok();
     });
   }
+}
+
+fn handle_error(error: anyhow::Error) -> Response<BoxBody<HyperBytes, Infallible>> {
+  let content = HyperBytes::from(format!("{}", error));
+  let body = BoxBody::new(Full::new(content));
+  let response = Response::builder().status(500).body(body);
+
+  let Ok(response) = response else { todo!() };
+
+  response
 }
