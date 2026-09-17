@@ -9,6 +9,7 @@ mod config;
 mod explorer;
 mod http1;
 mod logger;
+mod transpile;
 mod utils;
 mod watcher;
 
@@ -222,6 +223,22 @@ async fn main_async() -> anyhow::Result<()> {
           return Ok(res.status(403).body_from("Not allowed")?);
         }
 
+        // Redirect directory requests to a trailing slash so that relative
+        // URLs within (e.g. "./main.tsx") resolve against the directory
+        // rather than the parent.
+        if file_path.is_dir() && !req.uri().path().ends_with('/') {
+          let mut location = format!("{}/", req.uri().path());
+
+          if let Some(query) = req.uri().query() {
+            location.push('?');
+            location.push_str(query);
+          }
+
+          logger.println(format!("{} {}", "[301]".yellow().bold(), req.uri()));
+
+          return Ok(res.header("Location", location).status(301).body_from("")?);
+        }
+
         // Try to serve index.html
         if file_path.is_dir() && file_path.join("index.html").exists() {
           file_path = file_path.join("index.html");
@@ -234,7 +251,7 @@ async fn main_async() -> anyhow::Result<()> {
           }
         }
 
-        // Serve folder structure
+        // Serve folder explorer
         if file_path.is_dir() {
           let mut output = render_directory_explorer(&config, &req_path, &file_path)?;
 
@@ -270,11 +287,49 @@ async fn main_async() -> anyhow::Result<()> {
           return Ok(res.status(404).body_from("File not found")?);
         }
 
+        let ext = file_path
+          .extension()
+          .and_then(|v| v.to_str())
+          .unwrap_or_default()
+          .to_string();
+
+        if config.transpile && (ext == "ts" || ext == "tsx") {
+          let contents = tokio::fs::read(&file_path).await?;
+
+          let result = transpile::typescript::transpile(transpile::TransformerContext {
+            content: contents,
+            path: file_path.clone(),
+            kind: ext,
+          })?;
+
+          logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+          let content_type = format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX);
+
+          if config.compress {
+            res = res.header("Content-Encoding", "br");
+            return Ok(
+              res
+                .header("Content-Type", content_type)
+                .status(200)
+                .body_from(compress::brotli(result.code.as_bytes()))?,
+            );
+          }
+
+          return Ok(
+            res
+              .header("Content-Type", content_type)
+              .status(200)
+              .body_from(result.code)?,
+          );
+        }
+
         // Apply mime type
         let mime = self::mime_guess::from_path(&file_path)
           .first()
           .map(|v| v.to_string())
           .unwrap_or_default();
+
         if !mime.is_empty() {
           let mut content_type = mime.clone();
           // mime starts with "text/" or "application/"

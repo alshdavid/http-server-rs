@@ -46,6 +46,10 @@ pub struct CliCommand {
   #[arg(short = 'Q', long = "quiet")]
   pub quiet: bool,
 
+  /// Transpile served files
+  #[arg(short = 't', long = "transpile")]
+  pub transpile: bool,
+
   /// Watch folder for changes and trigger a browser reload
   #[arg(short = 'w', long = "watch")]
   pub watch: bool,
