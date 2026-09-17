@@ -80,6 +80,7 @@ async fn main_async() -> anyhow::Result<()> {
   logger.print_config("SharedArrayBuffer", &config.sab);
   logger.print_config("SPA", &config.spa);
   logger.print_config("Watch", &config.watch);
+  logger.print_config("Transpile", &config.transpile);
   logger.br();
 
   if !config.proxy.is_empty() {
