@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["DOM", "ESNext"],
+    "types": [],
+    "jsx": "react",
+    "jsxFactory": "h",
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}

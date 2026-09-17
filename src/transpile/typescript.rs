@@ -10,10 +10,78 @@ use oxc::transformer::TransformOptions;
 use oxc::transformer::Transformer;
 use oxc::transformer::TypeScriptOptions;
 
+use super::tsconfig::JsxMode;
 use super::TransformerContext;
 use super::TransformerResult;
 
+/// Options picked from the tsconfig used to drive the transform.
+#[derive(Debug, Clone, Default)]
+struct JsxConfig {
+  runtime: Option<JsxRuntime>,
+  pragma: Option<String>,
+  pragma_frag: Option<String>,
+  import_source: Option<String>,
+  development: bool,
+  /// Explicitly preserve JSX in the output (skip the JSX transform).
+  preserve: bool,
+}
+
+/// Translate the nearest tsconfig's `jsx` option into transform settings.
+fn jsx_config_from_tsconfig(ctx: &TransformerContext) -> JsxConfig {
+  let tsconfig = &ctx.tsconfig;
+
+  let pragma = tsconfig
+    .jsx_factory
+    .clone()
+    .unwrap_or_else(|| "React.createElement".to_string());
+
+  let pragma_frag = tsconfig
+    .jsx_fragment_factory
+    .clone()
+    .unwrap_or_else(|| "React.Fragment".to_string());
+
+  // Options for the classic runtime, honouring custom factories.
+  let classic = || JsxConfig {
+    runtime: Some(JsxRuntime::Classic),
+    pragma: Some(pragma.clone()),
+    pragma_frag: Some(pragma_frag.clone()),
+    ..JsxConfig::default()
+  };
+
+  // Options for the automatic runtime, honouring a custom import source.
+  let automatic = |development: bool| JsxConfig {
+    runtime: Some(JsxRuntime::Automatic),
+    import_source: Some(
+      tsconfig
+        .jsx_import_source
+        .clone()
+        .unwrap_or_else(|| "react".to_string()),
+    ),
+    development,
+    ..JsxConfig::default()
+  };
+
+  match tsconfig.jsx {
+    // `react` - the classic runtime
+    Some(JsxMode::React) => classic(),
+    // `react-jsx` / `react-jsxdev` - the automatic runtime
+    Some(JsxMode::ReactJsx) => automatic(false),
+    Some(JsxMode::ReactJsxDev) => automatic(true),
+    // `react-native` emits JSX and defers the transform to the bundler.
+    // Treat it like `preserve` for our purposes.
+    Some(JsxMode::Preserve) | Some(JsxMode::ReactNative) => JsxConfig {
+      preserve: true,
+      ..JsxConfig::default()
+    },
+    // No `jsx` setting: fall back to the classic runtime, which does not
+    // require the browser to resolve `react/jsx-runtime`.
+    None => classic(),
+  }
+}
+
 pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
+  let jsx_config = jsx_config_from_tsconfig(&ctx);
+
   let source = String::from_utf8(ctx.content)?;
 
   let allocator = Allocator::default();
@@ -64,17 +132,37 @@ pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
   }
   let scoping = scoping_result.semantic.into_scoping();
 
+  let mut jsx = if source_type.is_jsx() && !jsx_config.preserve {
+    JsxOptions {
+      runtime: jsx_config.runtime.unwrap_or(JsxRuntime::Classic),
+      development: jsx_config.development,
+      import_source: jsx_config.import_source.clone(),
+      pragma: jsx_config.pragma.clone(),
+      pragma_frag: jsx_config.pragma_frag.clone(),
+      ..JsxOptions::default()
+    }
+  } else {
+    JsxOptions::disable()
+  };
+  jsx.conform();
+
+  let typescript = TypeScriptOptions {
+    jsx_pragma: jsx_config
+      .pragma
+      .clone()
+      .unwrap_or_else(|| "React.createElement".to_string())
+      .into(),
+    jsx_pragma_frag: jsx_config
+      .pragma_frag
+      .clone()
+      .unwrap_or_else(|| "React.Fragment".to_string())
+      .into(),
+    ..TypeScriptOptions::default()
+  };
+
   let transform_options = TransformOptions {
-    typescript: TypeScriptOptions::default(),
-    jsx: match source_type.is_jsx() {
-      true => JsxOptions {
-        // Use the classic runtime so no `react/jsx-runtime` import is injected.
-        // Output uses `React.createElement` and relies on `React` being in scope.
-        runtime: JsxRuntime::Classic,
-        ..JsxOptions::default()
-      },
-      false => JsxOptions::disable(),
-    },
+    typescript,
+    jsx,
     ..Default::default()
   };
 

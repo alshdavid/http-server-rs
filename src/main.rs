@@ -131,17 +131,21 @@ async fn main_async() -> anyhow::Result<()> {
     false => Some(Arc::new(build_client())),
   };
 
+  let tsconfig_cache = Arc::new(transpile::tsconfig::TsConfigCache::new());
+
   http1_server(&config.domain, {
     let config = config.clone();
     let logger = logger.clone();
     let watcher = watcher.clone();
     let proxy_client = proxy_client.clone();
+    let tsconfig_cache = tsconfig_cache.clone();
 
     move |req, mut res| {
       let config = config.clone();
       let logger = logger.clone();
       let watcher = watcher.clone();
       let proxy_client = proxy_client.clone();
+      let tsconfig_cache = tsconfig_cache.clone();
 
       async move {
         // Basic Auth
@@ -348,10 +352,13 @@ async fn main_async() -> anyhow::Result<()> {
         if config.transpile && (ext == "ts" || ext == "tsx") {
           let contents = tokio::fs::read(&file_path).await?;
 
+          let tsconfig = tsconfig_cache.resolve(&file_path, &config.serve_dir_abs);
+
           let result = transpile::typescript::transpile(transpile::TransformerContext {
             content: contents,
             path: file_path.clone(),
             kind: ext,
+            tsconfig,
           })?;
 
           logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));

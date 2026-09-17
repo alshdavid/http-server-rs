@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub mod tsconfig;
 pub mod typescript;
 
 #[derive(Debug)]
@@ -14,4 +15,6 @@ pub struct TransformerContext {
   pub path: PathBuf,
   /// The extension of the file being processed
   pub kind: String,
+  /// The nearest `tsconfig.json` compiler options, if one was found
+  pub tsconfig: tsconfig::TsConfig,
 }

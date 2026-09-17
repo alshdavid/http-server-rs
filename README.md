@@ -8,11 +8,11 @@ https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
 
 ## Installation
 
-### NPM
+### Cargo
 
 ```bash
 # Rerun to update
-npm install -g http-server-rs
+cargo install http-server-rs
 ```
 
 ### Binary Install Script
@@ -77,6 +77,52 @@ Options:
           Reverse proxy routes (URL-encoded, e.g. "path=/api&target=http://localhost:3000")
   -h, --help
           Print help
+```
+
+## Live Transpile TypeScript
+
+Will live transpile TypeScript to JavaScript on request. This allows serving TypeScript sources 
+directly to the browser without a build step.
+
+```bash
+http-server-rs --transpile --port 8080 ./testing/transpile/react
+
+# Returns transpiled JavaScript that runs directly in the browser
+curl http://localhost:8080/app.tsx 
+```
+
+### tsconfig.json
+
+When transpiling, the nearest `tsconfig.json` (searching up from the requested file, stopping at the
+served directory) is loaded and its `compilerOptions` are applied. The `extends` chain is followed,
+and changes to the config are picked up automatically.
+
+The following options are supported:
+
+| Option | Effect |
+| --- | --- |
+| `jsx` | `react` uses the classic runtime; `react-jsx` / `react-jsxdev` use the automatic runtime; `preserve` / `react-native` leave JSX untouched |
+| `jsxFactory` | Custom factory for the classic runtime, e.g. `h` for Preact |
+| `jsxFragmentFactory` | Custom fragment factory for the classic runtime, e.g. `Fragment` |
+| `jsxImportSource` | Import source for the automatic runtime, e.g. `preact` |
+
+Configs whose `jsx` option is not set fall back to the classic runtime.
+
+```jsonc
+// testing/transpile/preact-tsconfig/tsconfig.json
+{
+  "compilerOptions": {
+    "jsx": "react",
+    "jsxFactory": "h"
+  }
+}
+```
+
+```bash
+http-server-rs --transpile --port 8080 ./testing/transpile
+
+# Transpiled using the nearest tsconfig.json (uses the `h` factory from Preact)
+curl http://localhost:8080/preact-tsconfig/main.tsx
 ```
 
 ## Watch Mode
