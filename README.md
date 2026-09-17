@@ -91,40 +91,6 @@ http-server-rs --transpile --port 8080 ./testing/transpile/react
 curl http://localhost:8080/app.tsx 
 ```
 
-### tsconfig.json
-
-When transpiling, the nearest `tsconfig.json` (searching up from the requested file, stopping at the
-served directory) is loaded and its `compilerOptions` are applied. The `extends` chain is followed,
-and changes to the config are picked up automatically.
-
-The following options are supported:
-
-| Option | Effect |
-| --- | --- |
-| `jsx` | `react` uses the classic runtime; `react-jsx` / `react-jsxdev` use the automatic runtime; `preserve` / `react-native` leave JSX untouched |
-| `jsxFactory` | Custom factory for the classic runtime, e.g. `h` for Preact |
-| `jsxFragmentFactory` | Custom fragment factory for the classic runtime, e.g. `Fragment` |
-| `jsxImportSource` | Import source for the automatic runtime, e.g. `preact` |
-
-Configs whose `jsx` option is not set fall back to the classic runtime.
-
-```jsonc
-// testing/transpile/preact-tsconfig/tsconfig.json
-{
-  "compilerOptions": {
-    "jsx": "react",
-    "jsxFactory": "h"
-  }
-}
-```
-
-```bash
-http-server-rs --transpile --port 8080 ./testing/transpile
-
-# Transpiled using the nearest tsconfig.json (uses the `h` factory from Preact)
-curl http://localhost:8080/preact-tsconfig/main.tsx
-```
-
 ## Watch Mode
 
 `http-server` under `--watch` mode can watch the served directory for changes and emit an event to the client notifying of a change. By default the server will intercept html files and inject a JavaScript script which subscribes to change events and triggers a page reload.
