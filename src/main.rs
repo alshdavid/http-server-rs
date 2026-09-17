@@ -9,6 +9,7 @@ mod config;
 mod explorer;
 mod http1;
 mod logger;
+mod proxy;
 mod transpile;
 mod utils;
 mod watcher;
@@ -30,6 +31,9 @@ use http1::ResponseBuilderExt;
 use logger::Logger;
 use mime_guess;
 use normalize_path::NormalizePath;
+use proxy::build_client;
+use proxy::match_proxy_route;
+use proxy::proxy_request;
 use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncWriteExt;
@@ -78,6 +82,18 @@ async fn main_async() -> anyhow::Result<()> {
   logger.print_config("Watch", &config.watch);
   logger.br();
 
+  if !config.proxy.is_empty() {
+    for (path, route) in config.proxy.iter() {
+      logger.println(format!(
+        "🔀 {:<19} {} -> {}",
+        format!("{}:", path).bold(),
+        path,
+        route.target
+      ));
+    }
+    logger.br();
+  }
+
   logger.print_headers(&config.headers);
   logger.br();
 
@@ -110,15 +126,22 @@ async fn main_async() -> anyhow::Result<()> {
     false => None,
   };
 
+  let proxy_client = match config.proxy.is_empty() {
+    true => None,
+    false => Some(Arc::new(build_client())),
+  };
+
   http1_server(&config.domain, {
     let config = config.clone();
     let logger = logger.clone();
     let watcher = watcher.clone();
+    let proxy_client = proxy_client.clone();
 
     move |req, mut res| {
       let config = config.clone();
       let logger = logger.clone();
       let watcher = watcher.clone();
+      let proxy_client = proxy_client.clone();
 
       async move {
         // Basic Auth
@@ -152,6 +175,35 @@ async fn main_async() -> anyhow::Result<()> {
           if creds != password {
             return Ok(res.status(403).body_from("")?);
           }
+        }
+
+        // Reverse proxy routes
+        if let Some((_proxy_path, route)) = match_proxy_route(&config.proxy, req.uri().path()) {
+          let Some(proxy_client) = proxy_client else {
+            return Ok(res.status(500).body_from("Proxy client not available")?);
+          };
+
+          let target = route.target.clone();
+          let request_uri = req.uri().clone();
+
+          logger.println(format!(
+            "{} {} -> {}",
+            "[proxy]".blue().bold(),
+            request_uri,
+            target
+          ));
+
+          let response = proxy_request(&proxy_client, route, req).await?;
+
+          logger.println(format!(
+            "{} {} -> {} {}",
+            "[proxy]".blue().bold(),
+            request_uri,
+            target,
+            response.status()
+          ));
+
+          return Ok(response);
         }
 
         // Remove the leading slash

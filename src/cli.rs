@@ -65,4 +65,9 @@ pub struct CliCommand {
   /// Configure the buffer size when streaming files
   #[arg(long = "stream-buffer-size", default_value = "4000")]
   pub stream_buffer_size: usize,
+
+  /// Reverse proxy routes (URL-encoded, e.g.
+  /// "path=/api&target=http://localhost:3000&secure=false&change_origin=false&path_rewrite[key]=^/api&path_rewrite[value]=")
+  #[arg(long = "proxy")]
+  pub proxy: Vec<String>,
 }

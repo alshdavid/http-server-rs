@@ -37,7 +37,7 @@ http-server -H X-Custom-Header:some-value
 ```
 
 ```
-Usage: http-server [OPTIONS] [SERVE_DIR]
+Usage: http-server-rs [OPTIONS] [SERVE_DIR]
 
 Arguments:
   [SERVE_DIR]  Target directory to serve [default: ./dist]
@@ -63,6 +63,8 @@ Options:
           Enable headers for SharedArrayBuffer
   -Q, --quiet
           Don't print any logs to terminal
+  -t, --transpile
+          Transpile served files
   -w, --watch
           Watch folder for changes and trigger a browser reload
       --watch-dir <WATCH_DIR>
@@ -71,6 +73,8 @@ Options:
           Don't automatically inject watch listener into html
       --stream-buffer-size <STREAM_BUFFER_SIZE>
           Configure the buffer size when streaming files [default: 4000]
+      --proxy <PROXY>
+          Reverse proxy routes (URL-encoded, e.g. "path=/api&target=http://localhost:3000")
   -h, --help
           Print help
 ```

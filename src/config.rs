@@ -8,6 +8,8 @@ use normalize_path::NormalizePath;
 use pathdiff::diff_paths;
 
 use crate::cli::CliCommand;
+use crate::proxy::parse_proxy_config;
+use crate::proxy::ProxyConfig;
 
 #[derive(Default, Debug)]
 pub struct Config {
@@ -29,6 +31,7 @@ pub struct Config {
   pub watch_dir: PathBuf,
   pub no_watch_inject: bool,
   pub stream_buffer_size: usize,
+  pub proxy: ProxyConfig,
 }
 
 impl Config {
@@ -57,6 +60,8 @@ impl Config {
     };
 
     let mut headers = HashMap::<String, Vec<String>>::new();
+
+    let proxy = parse_proxy_config(command.proxy)?;
 
     if command.sab {
       headers.insert(
@@ -143,6 +148,7 @@ impl Config {
       watch_dir: command.watch_dir.unwrap_or(serve_dir_abs),
       no_watch_inject: command.no_watch_inject,
       stream_buffer_size: command.stream_buffer_size,
+      proxy,
     })
   }
 }
