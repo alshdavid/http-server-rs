@@ -1,0 +1,17 @@
+{
+  "name": "http-server-rs-linux-x64",
+  "version": "0.0.0-local",
+  "license": "MIT",
+  "type": "module",
+  "bin": "./http-server-rs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alshdavid/http-server-rs.git"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

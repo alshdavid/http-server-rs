@@ -1,0 +1,17 @@
+{
+  "name": "http-server-rs-win32-arm64",
+  "version": "0.0.0-local",
+  "license": "MIT",
+  "type": "module",
+  "bin": "./http-server-rs.exe",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alshdavid/http-server-rs.git"
+  },
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "arm64"
+  ]
+}
