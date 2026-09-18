@@ -11,8 +11,24 @@ https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
 ### Cargo
 
 ```bash
-# Rerun to update
+# Installs globally
 cargo install http-server-rs
+```
+
+### NPM
+
+```bash
+# Installs to ./node_modules
+npm install http-server-rs
+npx http-server-rs --help
+```
+
+If you want to override the binary used (for custom platforms)
+```bash
+npm install http-server-rs
+
+export HTTP_SERVER_RS_BIN_OVERRIDE=/path/to/http-server-rs
+npx http-server-rs --help # Uses the override
 ```
 
 ### Binary Install Script
@@ -26,21 +42,27 @@ eval $(curl -sSf https://raw.githubusercontent.com/alshdavid/http-server-rs/refs
 
 ```bash
 # Use default configuration
-http-server
+http-server-rs
 
 # Arguments
-# Enable CORS, reroute requests to index.html and automatically compress to brotli 
-http-server --cors --spa -Z ./public
+# Enable CORS, reroute requests to index.html and automatically compress served files
+http-server-rs
+
+# Responds with headers required for SharedArrayBuffer
+http-server-rs --shared-array-buffer ./public
+
+# Automatically transpiles TypeScript to JavaScript on request
+http-server-rs --transpile ./public
 
 # Custom Headers
-http-server -H X-Custom-Header:some-value
+http-server-rs -H X-Custom-Header:some-value
 ```
 
 ```
 Usage: http-server-rs [OPTIONS] [SERVE_DIR]
 
 Arguments:
-  [SERVE_DIR]  Target directory to serve [default: ./dist]
+  [SERVE_DIR]  Target directory to serve [default: ./]
 
 Options:
   -a, --address <ADDRESS>

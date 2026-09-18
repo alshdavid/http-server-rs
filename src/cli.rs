@@ -5,7 +5,7 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 pub struct CliCommand {
   /// Target directory to serve
-  #[arg(default_value = "./dist")]
+  #[arg(default_value = ".")]
   pub serve_dir: PathBuf,
 
   #[arg(short = 'a', long = "address", default_value = "0.0.0.0")]
