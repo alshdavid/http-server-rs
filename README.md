@@ -31,11 +31,17 @@ export HTTP_SERVER_RS_BIN_OVERRIDE=/path/to/http-server-rs
 npx http-server-rs --help # Uses the override
 ```
 
-### Binary Install Script
+### Manual Install
+
+Download the latest binary from [GitHub Releases](https://github.com/alshdavid-public/http-server-rs/releases/latest) and add it to your `PATH`
 
 ```bash
-# Rerun to update
-eval $(curl -sSf https://raw.githubusercontent.com/alshdavid/http-server-rs/refs/heads/main/install.sh | sh)
+# Linux AMD64 (Change for your platform)
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+
+# Add to PATH if not already there:
+echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
+echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.bashrc
 ```
 
 ## Example Usage
