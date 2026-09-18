@@ -46,13 +46,16 @@ http-server-rs
 
 # Arguments
 # Enable CORS, reroute requests to index.html and automatically compress served files
-http-server-rs
+http-server-rs --cors --spa -Z ./public
 
 # Responds with headers required for SharedArrayBuffer
 http-server-rs --shared-array-buffer ./public
 
 # Automatically transpiles TypeScript to JavaScript on request
 http-server-rs --transpile ./public
+
+# Proxy /api to an external backend (quotes are required)
+http-server-rs --proxy "path=/api&target=http://localhost:3000" ./public
 
 # Custom Headers
 http-server-rs -H X-Custom-Header:some-value
