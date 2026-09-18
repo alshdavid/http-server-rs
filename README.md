@@ -38,13 +38,12 @@ npx http-server-rs --help # Uses the override
 eval $(curl -sSf https://raw.githubusercontent.com/alshdavid/http-server-rs/refs/heads/main/install.sh | sh)
 ```
 
-## Usage
+## Example Usage
 
 ```bash
 # Use default configuration
 http-server-rs
 
-# Arguments
 # Enable CORS, reroute requests to index.html and automatically compress served files
 http-server-rs --cors --spa -Z ./public
 
