@@ -132,15 +132,13 @@ pub fn find_nearest_tsconfig(
       return None;
     }
 
-    current = match current.parent() {
-      Some(parent) => {
-        // Never walk above the stop dir
-        if !parent.starts_with(stop_dir) && parent != stop_dir {
-          return None;
-        }
-        parent
+    current = {
+      let parent = current.parent()?;
+      // Never walk above the stop dir
+      if !parent.starts_with(stop_dir) && parent != stop_dir {
+        return None;
       }
-      None => return None,
+      parent
     };
   }
 }
