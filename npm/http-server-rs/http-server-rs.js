@@ -6,7 +6,7 @@ import * as path from "node:path";
 import * as process from "node:process";
 import * as url from "node:url";
 
-const PACKAGE = `http-server-rs-${process.platform}-${process.arch}`;
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 const SUPPORTED = [
   "linux-x64",
@@ -16,25 +16,8 @@ const SUPPORTED = [
   "win32-arm64",
 ];
 
-function resolveBinary() {
-  let manifestPath;
-  try {
-    manifestPath = url.fileURLToPath(
-      import.meta.resolve(`${PACKAGE}/package.json`),
-    );
-  } catch {
-    return undefined;
-  }
-
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  const bin =
-    typeof manifest.bin === "string" ? manifest.bin : manifest.bin?.[PACKAGE];
-  if (!bin) {
-    return undefined;
-  }
-
-  return path.resolve(path.dirname(manifestPath), bin);
-}
+const TARGET = `${process.platform}-${process.arch}`;
+const EXTENSION = process.platform === "win32" ? ".exe" : "";
 
 const override = process.env.HTTP_SERVER_RS_BIN_OVERRIDE;
 
@@ -45,19 +28,19 @@ if (override) {
     console.error(
       `http-server-rs: HTTP_SERVER_RS_BIN_OVERRIDE is set, but no file exists at:\n` +
         `  ${override}\n\n` +
-        `Unset it to use the binary for ${process.platform}-${process.arch}.`,
+        `Unset it to use the bundled binary for ${TARGET}.`,
     );
     process.exit(1);
   }
   binary = override;
 } else {
-  binary = resolveBinary();
+  binary = path.join(__dirname, `http-server-rs-${TARGET}${EXTENSION}`);
 
-  if (!binary) {
+  if (!fs.existsSync(binary)) {
     console.error(
-      `http-server-rs: no prebuilt binary for ${process.platform}-${process.arch}.\n\n` +
-        `Expected the optional dependency "${PACKAGE}" to be installed.\n` +
-        `If your platform is supported, npm may have been run with --omit=optional.\n\n` +
+      `http-server-rs: no bundled binary for ${TARGET}.\n\n` +
+        `Expected it at:\n` +
+        `  ${binary}\n\n` +
         `Supported platforms: ${SUPPORTED.join(", ")}\n` +
         `Set HTTP_SERVER_RS_BIN_OVERRIDE to run a binary from an explicit path.\n` +
         `https://github.com/alshdavid/http-server-rs`,
@@ -72,6 +55,8 @@ const result = child_process.spawnSync(binary, process.argv.slice(2), {
 });
 
 if (result.error) {
+  console.error(`http-server-rs: failed to execute ${binary}`);
+  console.error(result.error.message);
   process.exit(1);
 }
 

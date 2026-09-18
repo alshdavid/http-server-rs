@@ -4,17 +4,10 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "http-server-rs": "./http-server-rs.js"
+    "http-server-rs": "http-server-rs.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/alshdavid/http-server-rs.git"
-  },
-  "optionalDependencies": {
-    "http-server-rs-darwin-arm64": "0.0.0-local",
-    "http-server-rs-linux-arm64": "0.0.0-local",
-    "http-server-rs-linux-x64": "0.0.0-local",
-    "http-server-rs-win32-arm64": "0.0.0-local",
-    "http-server-rs-win32-x64": "0.0.0-local"
   }
 }

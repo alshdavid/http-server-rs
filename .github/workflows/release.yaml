@@ -217,7 +217,6 @@ jobs:
   publish_npm:
     name: "🔁 Publish: NPM"
     runs-on: ubuntu-latest
-    
     needs:
       - version
       - build
@@ -240,41 +239,25 @@ jobs:
 
           # Update versions
           sed "s/0.0.0-local/${VERSION}/g" "npm/http-server-rs/package.json" > "npm/http-server-rs/package.json.new" && mv "npm/http-server-rs/package.json.new" "npm/http-server-rs/package.json"
-          sed "s/0.0.0-local/${VERSION}/g" "npm/http-server-rs-darwin-arm64/package.json" > "npm/http-server-rs-darwin-arm64/package.json.new" && mv "npm/http-server-rs-darwin-arm64/package.json.new" "npm/http-server-rs-darwin-arm64/package.json"
-          sed "s/0.0.0-local/${VERSION}/g" "npm/http-server-rs-linux-arm64/package.json" > "npm/http-server-rs-linux-arm64/package.json.new" && mv "npm/http-server-rs-linux-arm64/package.json.new" "npm/http-server-rs-linux-arm64/package.json"
-          sed "s/0.0.0-local/${VERSION}/g" "npm/http-server-rs-linux-x64/package.json" > "npm/http-server-rs-linux-x64/package.json.new" && mv "npm/http-server-rs-linux-x64/package.json.new" "npm/http-server-rs-linux-x64/package.json"
-          sed "s/0.0.0-local/${VERSION}/g" "npm/http-server-rs-win32-arm64/package.json" > "npm/http-server-rs-win32-arm64/package.json.new" && mv "npm/http-server-rs-win32-arm64/package.json.new" "npm/http-server-rs-win32-arm64/package.json"
-          sed "s/0.0.0-local/${VERSION}/g" "npm/http-server-rs-win32-x64/package.json" > "npm/http-server-rs-win32-x64/package.json.new" && mv "npm/http-server-rs-win32-x64/package.json.new" "npm/http-server-rs-win32-x64/package.json"
 
           # Copy binaries
-          cp "artifacts/http-server-rs-linux-amd64/http-server-rs" "npm/http-server-rs-linux-x64/http-server-rs"
-          chmod +x "npm/http-server-rs-linux-x64/http-server-rs"
+          cp "artifacts/http-server-rs-linux-amd64/http-server-rs" "npm/http-server-rs/http-server-rs-linux-x64"
+          chmod +x "npm/http-server-rs/http-server-rs-linux-x64"
 
-          cp "artifacts/http-server-rs-linux-arm64/http-server-rs" "npm/http-server-rs-linux-arm64/http-server-rs"
-          chmod +x "npm/http-server-rs-linux-arm64/http-server-rs"
+          cp "artifacts/http-server-rs-linux-arm64/http-server-rs" "npm/http-server-rs/http-server-rs-linux-arm64"
+          chmod +x "npm/http-server-rs/http-server-rs-linux-arm64"
 
-          cp "artifacts/http-server-rs-macos-arm64/http-server-rs" "npm/http-server-rs-darwin-arm64/http-server-rs"
-          chmod +x "npm/http-server-rs-darwin-arm64/http-server-rs"
+          cp "artifacts/http-server-rs-macos-arm64/http-server-rs" "npm/http-server-rs/http-server-rs-darwin-arm64"
+          chmod +x "npm/http-server-rs/http-server-rs-darwin-arm64"
 
-          cp "artifacts/http-server-rs-windows-amd64/http-server-rs.exe" "npm/http-server-rs-win32-x64/http-server-rs.exe"
-          chmod +x "npm/http-server-rs-win32-x64/http-server-rs.exe"
+          cp "artifacts/http-server-rs-windows-amd64/http-server-rs.exe" "npm/http-server-rs/http-server-rs-win32-x64.exe"
+          chmod +x "npm/http-server-rs/http-server-rs-win32-x64.exe"
 
-          cp "artifacts/http-server-rs-windows-arm64/http-server-rs.exe" "npm/http-server-rs-win32-arm64/http-server-rs.exe"
-          chmod +x "npm/http-server-rs-win32-arm64/http-server-rs.exe"
+          cp "artifacts/http-server-rs-windows-arm64/http-server-rs.exe" "npm/http-server-rs/http-server-rs-win32-arm64.exe"
+          chmod +x "npm/http-server-rs/http-server-rs-win32-arm64.exe"
 
           # Copy README
           cp "README.md" "npm/http-server-rs/README.md"
-          cp "README.md" "npm/http-server-rs-darwin-arm64/README.md"
-          cp "README.md" "npm/http-server-rs-linux-arm64/README.md"
-          cp "README.md" "npm/http-server-rs-linux-x64/README.md"
-          cp "README.md" "npm/http-server-rs-win32-arm64/README.md"
-          cp "README.md" "npm/http-server-rs-win32-x64/README.md"
 
           # Publish to NPM
-          npm publish "./npm/http-server-rs-darwin-arm64"
-          npm publish "./npm/http-server-rs-linux-arm64"
-          npm publish "./npm/http-server-rs-linux-x64"
-          npm publish "./npm/http-server-rs-win32-arm64"
-          npm publish "./npm/http-server-rs-win32-x64"
-
           npm publish "./npm/http-server-rs"
