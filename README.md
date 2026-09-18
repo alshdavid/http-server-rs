@@ -37,7 +37,7 @@ Download the latest binary from [GitHub Releases](https://github.com/alshdavid-p
 
 ```bash
 # Linux AMD64 (Change for your platform)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # Add to PATH if not already there:
 echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
@@ -157,16 +157,16 @@ Download the binary from the [latest GitHub release](https://github.com/alshdavi
 
 ```shell
 # Linux AMD64
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # Linux ARM64
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-linux-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-linux-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # MacOS ARM64 (Apple Silicon)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin 
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin 
 
 # MacOS AMD64 (Intel)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-macos-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
+curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-macos-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
 
 # Add to PATH if not already there:
 echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
