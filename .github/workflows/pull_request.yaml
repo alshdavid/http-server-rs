@@ -13,9 +13,6 @@ on:
     branches:
       - "main"
 
-env:
-  PROJECT_NAME: http-server-rs
-
 jobs:
   test:
     name: 🧪 Test
@@ -23,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test
 
   format:
@@ -31,6 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-xfmt
       - run: cargo xfmt --check
 
@@ -40,4 +39,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --workspace -- -D warnings
+
+  build:
+    name: 🔨 Build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build
