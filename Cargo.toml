@@ -11,7 +11,7 @@ rust_2018_idioms = { priority = -1, level = "deny" }
 
 [lints.clippy]
 module_inception = "allow"
-uninlined-format-args = "allow"
+uninlined_format_args = "allow"
 
 [dependencies]
 anyhow = "1.0.104"
