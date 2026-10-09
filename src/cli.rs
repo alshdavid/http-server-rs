@@ -62,6 +62,10 @@ pub struct CliCommand {
   #[arg(long = "no-watch-inject")]
   pub no_watch_inject: bool,
 
+  /// Upgrade the binary to the latest release
+  #[arg(long = "upgrade", default_value_t = false)]
+  pub upgrade: bool,
+
   /// Configure the buffer size when streaming files
   #[arg(long = "stream-buffer-size", default_value = "4000")]
   pub stream_buffer_size: usize,

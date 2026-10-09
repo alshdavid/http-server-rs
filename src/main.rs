@@ -12,6 +12,7 @@ mod http1;
 mod ip_address;
 mod logger;
 mod proxy;
+mod self_upgrade;
 mod transpile;
 mod utils;
 mod watcher;
@@ -44,13 +45,60 @@ use watcher::WatcherOptions;
 use crate::config::Config;
 use crate::constants as c;
 use crate::ip_address::DomainOptions;
+use crate::self_upgrade::UpgradeOptions;
+use crate::self_upgrade::UpgradeOutcome;
 
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
+
+  if config.upgrade {
+    println!("Starting Self Upgrade");
+
+    let outcome = crate::self_upgrade::try_upgrade(&UpgradeOptions {
+      target_repo: "alshdavid/http-server-rs",
+      current_version: &config.version,
+    })
+    .await;
+
+    match outcome {
+      Ok(UpgradeOutcome::Skip) => {
+        println!("Already on the latest version ({})", config.version);
+      }
+      Ok(UpgradeOutcome::Success) => {
+        println!("Upgrade complete");
+      }
+      Err(err) => {
+        eprintln!("Upgrade failed: {err}");
+      }
+    }
+
+    return Ok(());
+  }
+
   let logger: Arc<Logger> = match config.quiet {
     true => Arc::new(Logger::Quiet),
     false => Arc::new(Logger::Default),
   };
+
+  if !config.quiet {
+    tokio::spawn({
+      let version = config.version.clone();
+      async move {
+        let available = crate::self_upgrade::check_for_update(&UpgradeOptions {
+          target_repo: "alshdavid/http-server-rs",
+          current_version: &version,
+        })
+        .await;
+
+        if let Ok(Some(latest)) = available {
+          println!(
+            "⚡ Update available: {} -> {}  (run `http-server-rs --upgrade`)",
+            version, latest
+          );
+        }
+      }
+    });
+  }
 
   logger.println("🚀 HTTP Server 🌏".green().bold().to_string());
   logger.br();
@@ -467,7 +515,9 @@ async fn main_async() -> anyhow::Result<()> {
       }
     }
   })
-  .await
+  .await?;
+
+  Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
