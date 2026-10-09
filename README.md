@@ -70,7 +70,7 @@ http-server-rs -H X-Custom-Header:some-value
 Usage: http-server-rs [OPTIONS] [SERVE_DIR]
 
 Arguments:
-  [SERVE_DIR]  Target directory to serve [default: ./]
+  [SERVE_DIR]  Target directory to serve [default: .]
 
 Options:
   -a, --address <ADDRESS>
@@ -101,10 +101,14 @@ Options:
           Watch for changes [default: SERVE_DIR]
       --no-watch-inject
           Don't automatically inject watch listener into html
+      --upgrade
+          Upgrade the binary to the latest release
+      --skip-upgrade-check
+          Skip checking for a newer release on startup
       --stream-buffer-size <STREAM_BUFFER_SIZE>
           Configure the buffer size when streaming files [default: 4000]
       --proxy <PROXY>
-          Reverse proxy routes (URL-encoded, e.g. "path=/api&target=http://localhost:3000")
+          Reverse proxy routes (URL-encoded, e.g. "path=/api&target=http://localhost:3000&secure=false&change_origin=false&path_rewrite[key]=^/api&path_rewrite[value]=")
   -h, --help
           Print help
 ```
