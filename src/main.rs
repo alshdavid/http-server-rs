@@ -41,6 +41,7 @@ use watcher::Watcher;
 use watcher::WatcherOptions;
 
 use crate::config::Config;
+use crate::ip_address::DomainOptions;
 
 const DEFAULT_CHARSET_SUFFIX: &str = "charset=UTF-8";
 
@@ -84,16 +85,12 @@ async fn main_async() -> anyhow::Result<()> {
     logger.println(format!("🔗 http://{}", config.domain_pretty));
   }
 
-  // print intranet ip domain
-  // Todo address bind to local ip 127.0.0.1 skip print?
-  let intranet_domain = ip_address::get_intranet_ip();
-  if intranet_domain.is_some() {
-    let Some(intranet_domain_str) = intranet_domain.as_ref() else {
-      return Err(anyhow::anyhow!("Unable to get intranet domain str"));
-    };
-    if intranet_domain_str != &config.domain_pretty && intranet_domain_str != &config.domain {
-      logger.println(format!("🔗 http://{}:{}", intranet_domain_str, config.port));
-    }
+  if let Some(intranet_domain) = ip_address::get_domain(&DomainOptions {
+    domain: &config.domain,
+    domain_pretty: &config.domain_pretty,
+    port: config.port,
+  }) {
+    logger.println(format!("🔗 http://{}", intranet_domain));
   }
 
   logger.br();
