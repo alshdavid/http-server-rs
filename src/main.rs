@@ -8,13 +8,13 @@ mod compress;
 mod config;
 mod explorer;
 mod http1;
+mod ip_address;
 mod logger;
 mod proxy;
 mod transpile;
 mod utils;
 mod watcher;
 
-use std::net::UdpSocket;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
@@ -43,25 +43,6 @@ use watcher::WatcherOptions;
 use crate::config::Config;
 
 const DEFAULT_CHARSET_SUFFIX: &str = "charset=UTF-8";
-
-// copy from https://github.com/egmkang/local_ipaddress/blob/master/src/lib.rs
-// Todo: need all ips use https://crates.io/crates/local-ip-address
-fn get_intranet_ip() -> Option<String> {
-  let socket = match UdpSocket::bind("0.0.0.0:0") {
-    Ok(s) => s,
-    Err(_) => return None,
-  };
-
-  match socket.connect("8.8.8.8:80") {
-    Ok(()) => (),
-    Err(_) => return None,
-  };
-
-  match socket.local_addr() {
-    Ok(addr) => Some(addr.ip().to_string()),
-    Err(_) => None,
-  }
-}
 
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
@@ -105,7 +86,7 @@ async fn main_async() -> anyhow::Result<()> {
 
   // print intranet ip domain
   // Todo address bind to local ip 127.0.0.1 skip print?
-  let intranet_domain = get_intranet_ip();
+  let intranet_domain = ip_address::get_intranet_ip();
   if intranet_domain.is_some() {
     let Some(intranet_domain_str) = intranet_domain.as_ref() else {
       return Err(anyhow::anyhow!("Unable to get intranet domain str"));
