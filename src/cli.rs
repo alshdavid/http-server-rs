@@ -66,6 +66,10 @@ pub struct CliCommand {
   #[arg(long = "upgrade", default_value_t = false)]
   pub upgrade: bool,
 
+  /// Skip checking for a newer release on startup
+  #[arg(long = "skip-upgrade-check", default_value_t = false)]
+  pub skip_upgrade_check: bool,
+
   /// Configure the buffer size when streaming files
   #[arg(long = "stream-buffer-size", default_value = "4000")]
   pub stream_buffer_size: usize,

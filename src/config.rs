@@ -33,6 +33,7 @@ pub struct Config {
   pub stream_buffer_size: usize,
   pub proxy: ProxyConfig,
   pub upgrade: bool,
+  pub skip_upgrade_check: bool,
   pub version: String,
 }
 
@@ -152,6 +153,7 @@ impl Config {
       stream_buffer_size: command.stream_buffer_size,
       proxy,
       upgrade: command.upgrade,
+      skip_upgrade_check: command.skip_upgrade_check,
       version: env!("CARGO_PKG_VERSION").to_string(),
     })
   }

@@ -80,7 +80,7 @@ async fn main_async() -> anyhow::Result<()> {
     false => Arc::new(Logger::Default),
   };
 
-  if !config.quiet {
+  if !config.quiet && !config.skip_upgrade_check {
     tokio::spawn({
       let version = config.version.clone();
       async move {
