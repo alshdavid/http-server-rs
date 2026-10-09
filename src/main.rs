@@ -6,6 +6,7 @@ mod b64;
 mod cli;
 mod compress;
 mod config;
+mod constants;
 mod explorer;
 mod http1;
 mod ip_address;
@@ -41,9 +42,8 @@ use watcher::Watcher;
 use watcher::WatcherOptions;
 
 use crate::config::Config;
+use crate::constants as c;
 use crate::ip_address::DomainOptions;
-
-const DEFAULT_CHARSET_SUFFIX: &str = "charset=UTF-8";
 
 async fn main_async() -> anyhow::Result<()> {
   let config = Arc::new(Config::from_cli()?);
@@ -206,7 +206,7 @@ async fn main_async() -> anyhow::Result<()> {
             res
               .header(
                 "Content-Type",
-                format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX),
+                format!("application/javascript; {}", c::DEFAULT_CHARSET_SUFFIX),
               )
               .status(200)
               .body_from(reload_script())?,
@@ -223,7 +223,7 @@ async fn main_async() -> anyhow::Result<()> {
             .header("X-Accel-Buffering", "no")
             .header(
               "Content-Type",
-              format!("text/event-stream; {}", DEFAULT_CHARSET_SUFFIX),
+              format!("text/event-stream; {}", c::DEFAULT_CHARSET_SUFFIX),
             )
             .header("Cache-Control", "no-cache")
             .header("Connection", "keep-alive")
@@ -299,7 +299,7 @@ async fn main_async() -> anyhow::Result<()> {
             res
               .header(
                 "Content-Type",
-                format!("text/html;{}", DEFAULT_CHARSET_SUFFIX),
+                format!("text/html;{}", c::DEFAULT_CHARSET_SUFFIX),
               )
               .status(200)
               .body_from(output)?,
@@ -342,7 +342,7 @@ async fn main_async() -> anyhow::Result<()> {
 
           logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
-          let content_type = format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX);
+          let content_type = format!("application/javascript; {}", c::DEFAULT_CHARSET_SUFFIX);
 
           if config.compress {
             res = res.header("Content-Encoding", "br");
@@ -376,7 +376,7 @@ async fn main_async() -> anyhow::Result<()> {
             || content_type.starts_with("application/json")
           {
             // Todo check file charset
-            content_type = format!("{}; {}", content_type, DEFAULT_CHARSET_SUFFIX);
+            content_type = format!("{}; {}", content_type, c::DEFAULT_CHARSET_SUFFIX);
           }
           res = res.header("Content-Type", &content_type);
         }
