@@ -100,7 +100,12 @@ async fn main_async() -> anyhow::Result<()> {
     });
   }
 
-  logger.println("🚀 HTTP Server 🌏".green().bold().to_string());
+  logger.println(
+    format!("🚀 HTTP Server 🌏 v{}", config.version)
+      .green()
+      .bold()
+      .to_string(),
+  );
   logger.br();
 
   logger.print_folder(&config.serve_dir_fmt);
