@@ -1,7 +1,6 @@
 [package]
 name = "http-server-rs"
-# version = "0.0.0-local"
-version = "0.0.1"
+version = "0.0.0-local"
 edition = "2021"
 description = "Simple, zero-configuration command-line static HTTP server."
 license = "MIT"
