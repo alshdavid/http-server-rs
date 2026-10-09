@@ -80,7 +80,7 @@ pub async fn check_for_update(
     return Ok(None);
   }
 
-  let release = get_latest_releases(&options.target_repo).await?;
+  let release = get_latest_releases(options.target_repo).await?;
   let remote_version = normalize_tag(&release.tag_name)?;
 
   if current_version < remote_version {
@@ -109,7 +109,7 @@ pub async fn try_upgrade(options: &UpgradeOptions<'_>) -> anyhow::Result<Upgrade
     return Ok(UpgradeOutcome::Skip);
   }
 
-  let release = get_latest_releases(&options.target_repo).await?;
+  let release = get_latest_releases(options.target_repo).await?;
   let remote_version = normalize_tag(&release.tag_name)?;
 
   if current_version >= remote_version {
@@ -137,11 +137,11 @@ pub async fn try_upgrade(options: &UpgradeOptions<'_>) -> anyhow::Result<Upgrade
     return Err(anyhow::anyhow!("Malformed archive"));
   }
 
-  let Some((_, file)) = files.get(0) else {
+  let Some((_, file)) = files.first() else {
     return Err(anyhow::anyhow!("Malformed archive"));
   };
 
-  replace_current_exe(&file).await?;
+  replace_current_exe(file).await?;
 
   Ok(UpgradeOutcome::Success)
 }
