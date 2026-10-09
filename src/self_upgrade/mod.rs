@@ -228,9 +228,24 @@ async fn replace_current_exe(file: &[u8]) -> anyhow::Result<()> {
   {
     use std::os::unix::fs::PermissionsExt;
     tokio::fs::set_permissions(&new_exe, std::fs::Permissions::from_mode(0o755)).await?;
+    std::fs::rename(&new_exe, &current_exe)?;
   }
 
-  std::fs::rename(&new_exe, &current_exe)?;
+  // A running image file is locked on Windows: it may be renamed but not
+  // overwritten, so move it aside first and clean it up afterwards.
+  #[cfg(windows)]
+  {
+    let old_exe = current_exe.with_extension("old");
+    let _ = std::fs::remove_file(&old_exe);
+
+    std::fs::rename(&current_exe, &old_exe)?;
+    std::fs::rename(&new_exe, &current_exe).inspect_err(|_| {
+      let _ = std::fs::rename(&old_exe, &current_exe);
+    })?;
+
+    // The old image stays locked until this process exits.
+    let _ = std::fs::remove_file(&old_exe);
+  }
 
   Ok(())
 }
