@@ -175,7 +175,7 @@ jobs:
 
           gh release delete "$VERSION" --yes --cleanup-tag 2>/dev/null || true
           gh release create $VERSION --draft --notes "Automatically built binaries"
-          gh release edit $VERSION --title "🚀 Latest"
+          gh release edit "$VERSION" --title "🚀 v${VERSION}"
 
           cd artifacts
           ls -la
