@@ -203,6 +203,10 @@ jobs:
 
           gh release edit $VERSION --draft=false
 
+          curl -fsS -X POST "${{ secrets.SENTINEL_CHANGELOG_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            -d '{"repository": "${{ github.repository }}", "version": "${VERSION}"}'
+
   publish_crates_io:
     name: "🔁 Publish: Crate"
     runs-on: ubuntu-latest
