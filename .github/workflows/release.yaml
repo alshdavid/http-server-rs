@@ -31,6 +31,7 @@ jobs:
           if [ "$LAST_VERSION" = "" ]; then
             LAST_VERSION="0"
           fi
+          
           declare -i var="$LAST_VERSION"
           var=$var+1
           VERSION="0.0.$var"
