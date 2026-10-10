@@ -38,7 +38,7 @@ impl JsxMode {
 /// A resolution of the TypeScript compiler options that affect transpilation.
 ///
 /// Only a subset of `compilerOptions` is represented - the options that the
-/// oxc transformer can act on.
+/// swc transformer can act on.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TsConfig {
   /// The `jsx` compiler option, if set.

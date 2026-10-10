@@ -52,7 +52,18 @@ tokio-util = { version = "0.7.19", features = [
 brotli = "9.0.0"
 urlencoding = "2.1.3"
 base64 = "0.23.1"
-oxc = { version = "0.153.0", features = ["transformer", "codegen", "semantic"] }
+swc_core = { version = "82.0.0", features = [
+  "common",
+  "ecma_ast",
+  "ecma_codegen",
+  "ecma_helpers_inline",
+  "ecma_parser",
+  "ecma_parser_typescript",
+  "ecma_transforms",
+  "ecma_transforms_proposal",
+  "ecma_transforms_react",
+  "ecma_transforms_typescript",
+] }
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "0.1.4"

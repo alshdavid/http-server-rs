@@ -1,14 +1,33 @@
-use oxc::allocator::Allocator;
-use oxc::ast::ast::SourceType;
-use oxc::codegen::Codegen;
-use oxc::codegen::CodegenOptions;
-use oxc::parser::Parser;
-use oxc::semantic::SemanticBuilder;
-use oxc::transformer::JsxOptions;
-use oxc::transformer::JsxRuntime;
-use oxc::transformer::TransformOptions;
-use oxc::transformer::Transformer;
-use oxc::transformer::TypeScriptOptions;
+use swc_core::common::comments::SingleThreadedComments;
+use swc_core::common::sync::Lrc;
+use swc_core::common::FileName;
+use swc_core::common::Globals;
+use swc_core::common::Mark;
+use swc_core::common::SourceFile;
+use swc_core::common::SourceMap;
+use swc_core::common::GLOBALS;
+use swc_core::ecma::ast::EsVersion;
+use swc_core::ecma::ast::Program;
+use swc_core::ecma::codegen::to_code_default;
+use swc_core::ecma::parser::lexer::Lexer;
+use swc_core::ecma::parser::Parser;
+use swc_core::ecma::parser::StringInput;
+use swc_core::ecma::parser::Syntax;
+use swc_core::ecma::parser::TsSyntax;
+use swc_core::ecma::transforms::base::fixer::fixer;
+use swc_core::ecma::transforms::base::helpers::inject_helpers;
+use swc_core::ecma::transforms::base::helpers::Helpers;
+use swc_core::ecma::transforms::base::helpers::HELPERS;
+use swc_core::ecma::transforms::base::hygiene::hygiene;
+use swc_core::ecma::transforms::base::resolver;
+use swc_core::ecma::transforms::proposal::decorator_2022_03::decorator_2022_03;
+use swc_core::ecma::transforms::react::react;
+use swc_core::ecma::transforms::react::Options as ReactOptions;
+use swc_core::ecma::transforms::react::Runtime;
+use swc_core::ecma::transforms::typescript::tsx as tsx_strip;
+use swc_core::ecma::transforms::typescript::typescript;
+use swc_core::ecma::transforms::typescript::Config as TsConfig;
+use swc_core::ecma::transforms::typescript::TsxConfig;
 
 use super::tsconfig::JsxMode;
 use super::TransformerContext;
@@ -17,7 +36,7 @@ use super::TransformerResult;
 /// Options picked from the tsconfig used to drive the transform.
 #[derive(Debug, Clone, Default)]
 struct JsxConfig {
-  runtime: Option<JsxRuntime>,
+  runtime: Option<Runtime>,
   pragma: Option<String>,
   pragma_frag: Option<String>,
   import_source: Option<String>,
@@ -30,33 +49,18 @@ struct JsxConfig {
 fn jsx_config_from_tsconfig(ctx: &TransformerContext) -> JsxConfig {
   let tsconfig = &ctx.tsconfig;
 
-  let pragma = tsconfig
-    .jsx_factory
-    .clone()
-    .unwrap_or_else(|| "React.createElement".to_string());
-
-  let pragma_frag = tsconfig
-    .jsx_fragment_factory
-    .clone()
-    .unwrap_or_else(|| "React.Fragment".to_string());
-
   // Options for the classic runtime, honouring custom factories.
   let classic = || JsxConfig {
-    runtime: Some(JsxRuntime::Classic),
-    pragma: Some(pragma.clone()),
-    pragma_frag: Some(pragma_frag.clone()),
+    runtime: Some(Runtime::Classic),
+    pragma: tsconfig.jsx_factory.clone(),
+    pragma_frag: tsconfig.jsx_fragment_factory.clone(),
     ..JsxConfig::default()
   };
 
   // Options for the automatic runtime, honouring a custom import source.
   let automatic = |development: bool| JsxConfig {
-    runtime: Some(JsxRuntime::Automatic),
-    import_source: Some(
-      tsconfig
-        .jsx_import_source
-        .clone()
-        .unwrap_or_else(|| "react".to_string()),
-    ),
+    runtime: Some(Runtime::Automatic),
+    import_source: tsconfig.jsx_import_source.clone(),
     development,
     ..JsxConfig::default()
   };
@@ -79,112 +83,154 @@ fn jsx_config_from_tsconfig(ctx: &TransformerContext) -> JsxConfig {
   }
 }
 
+/// Parse the source, returning every error the parser reported.
+fn parse(
+  fm: &Lrc<SourceFile>,
+  comments: &SingleThreadedComments,
+  tsx: bool,
+) -> Result<Program, Vec<String>> {
+  let lexer = Lexer::new(
+    Syntax::Typescript(TsSyntax {
+      tsx,
+      decorators: true,
+      ..TsSyntax::default()
+    }),
+    EsVersion::latest(),
+    StringInput::from(&**fm),
+    Some(comments),
+  );
+
+  let mut parser = Parser::new_from(lexer);
+
+  let program = parser.parse_program();
+
+  let mut errors: Vec<String> = parser
+    .take_errors()
+    .into_iter()
+    .map(|error| error.kind().msg().to_string())
+    .collect();
+
+  match program {
+    Ok(program) if errors.is_empty() => Ok(program),
+    Ok(_) => Err(errors),
+    Err(error) => {
+      errors.push(error.kind().msg().to_string());
+      Err(errors)
+    }
+  }
+}
+
 pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
   let jsx_config = jsx_config_from_tsconfig(&ctx);
 
   let source = String::from_utf8(ctx.content)?;
 
-  let allocator = Allocator::default();
-
-  let source_type = match ctx.kind.as_str() {
-    "ts" => SourceType::ts(),
-    "tsx" => SourceType::tsx(),
+  let is_tsx = match ctx.kind.as_str() {
+    "ts" => false,
+    "tsx" => true,
     _ => {
       anyhow::bail!("Got an invalid file type");
     }
   };
 
-  let parse_result = Parser::new(&allocator, &source, source_type).parse();
-  if !parse_result.diagnostics.is_empty() {
-    // If we're parsing a .ts file, it is common for users to accidentally include JSX.
-    // Re-parse in TSX mode to detect this case and emit a clearer error.
-    if ctx.kind == "ts" {
-      let allocator_tsx = Allocator::default();
-      let parse_as_tsx = Parser::new(&allocator_tsx, &source, SourceType::tsx()).parse();
-      // To avoid false positives (e.g. angle-bracket type assertions), also require
-      // an obvious JSX marker in the source when TS parsing fails but TSX parsing succeeds.
-      let looks_like_jsx = source.contains("</") || source.contains("/>") || source.contains("<>");
-      if parse_as_tsx.diagnostics.is_empty() && looks_like_jsx {
-        anyhow::bail!(
-          "JSX syntax detected in a .ts file: {}. Rename the file to .tsx or remove JSX.",
-          ctx.path.display()
-        );
+  let cm: Lrc<SourceMap> = Default::default();
+  let fm = cm.new_source_file(FileName::Real(ctx.path.clone()).into(), source.clone());
+  let comments = SingleThreadedComments::default();
+
+  let program = match parse(&fm, &comments, is_tsx) {
+    Ok(program) => program,
+    Err(errors) => {
+      // If we're parsing a .ts file, it is common for users to accidentally include JSX.
+      // Re-parse in TSX mode to detect this case and emit a clearer error.
+      if !is_tsx {
+        // To avoid false positives (e.g. angle-bracket type assertions), also require
+        // an obvious JSX marker in the source when TS parsing fails but TSX parsing succeeds.
+        let looks_like_jsx =
+          source.contains("</") || source.contains("/>") || source.contains("<>");
+        if looks_like_jsx && parse(&fm, &comments, true).is_ok() {
+          anyhow::bail!(
+            "JSX syntax detected in a .ts file: {}. Rename the file to .tsx or remove JSX.",
+            ctx.path.display()
+          );
+        }
       }
+
+      anyhow::bail!("Parse errors: {}", errors.join(", "));
     }
-
-    let errors: Vec<String> = parse_result
-      .diagnostics
-      .iter()
-      .map(|e| format!("{:?}", e))
-      .collect();
-    anyhow::bail!("Parse errors: {}", errors.join(", "));
-  }
-  let mut program = parse_result.program;
-
-  let scoping_result = SemanticBuilder::new().build(&program);
-  if !scoping_result.diagnostics.is_empty() {
-    let errors: Vec<String> = scoping_result
-      .diagnostics
-      .iter()
-      .map(|e| format!("{:?}", e))
-      .collect();
-    anyhow::bail!("Parse errors: {}", errors.join(", "));
-  }
-  let scoping = scoping_result.semantic.into_scoping();
-
-  let mut jsx = if source_type.is_jsx() && !jsx_config.preserve {
-    JsxOptions {
-      runtime: jsx_config.runtime.unwrap_or(JsxRuntime::Classic),
-      development: jsx_config.development,
-      import_source: jsx_config.import_source.clone(),
-      pragma: jsx_config.pragma.clone(),
-      pragma_frag: jsx_config.pragma_frag.clone(),
-      ..JsxOptions::default()
-    }
-  } else {
-    JsxOptions::disable()
-  };
-  jsx.conform();
-
-  let typescript = TypeScriptOptions {
-    jsx_pragma: jsx_config
-      .pragma
-      .clone()
-      .unwrap_or_else(|| "React.createElement".to_string())
-      .into(),
-    jsx_pragma_frag: jsx_config
-      .pragma_frag
-      .clone()
-      .unwrap_or_else(|| "React.Fragment".to_string())
-      .into(),
-    ..TypeScriptOptions::default()
   };
 
-  let transform_options = TransformOptions {
-    typescript,
-    jsx,
-    ..Default::default()
-  };
+  let globals = Globals::default();
 
-  let result = Transformer::new(&allocator, &ctx.path, &transform_options);
-  let build_result = result.build_with_scoping(scoping, &mut program);
-  if !build_result.diagnostics.is_empty() {
-    let errors: Vec<String> = build_result
-      .diagnostics
-      .iter()
-      .map(|e| format!("{:?}", e))
-      .collect();
-    anyhow::bail!("Transform errors: {}", errors.join(", "));
-  }
+  // Helpers (decorator runtime, etc.) are inlined into the response rather
+  // than imported from `@swc/helpers`, a browser cannot resolve those.
+  let code = GLOBALS.set(&globals, || {
+    HELPERS.set(&Helpers::new(false), || {
+      let unresolved_mark = Mark::new();
+      let top_level_mark = Mark::new();
 
-  let generated = Codegen::new()
-    .with_options(CodegenOptions {
-      minify: false,
-      ..CodegenOptions::default()
+      let mut program = program.apply(resolver(unresolved_mark, top_level_mark, true));
+
+      // Stage 3 decorators have to run before the types are stripped, they are
+      // free to read type information off the members they decorate.
+      program = program.apply(decorator_2022_03());
+
+      let ts_config = TsConfig {
+        // Output runs as-is in the browser, so class fields keep their native
+        // ([[Define]]) semantics rather than moving into the constructor.
+        native_class_properties: true,
+        ..TsConfig::default()
+      };
+
+      if is_tsx && !jsx_config.preserve {
+        program = program.apply(tsx_strip(
+          cm.clone(),
+          ts_config,
+          TsxConfig {
+            pragma: Some(
+              jsx_config
+                .pragma
+                .clone()
+                .unwrap_or_else(|| "React.createElement".to_string())
+                .into(),
+            ),
+            pragma_frag: Some(
+              jsx_config
+                .pragma_frag
+                .clone()
+                .unwrap_or_else(|| "React.Fragment".to_string())
+                .into(),
+            ),
+          },
+          comments.clone(),
+          unresolved_mark,
+          top_level_mark,
+        ));
+
+        program = program.apply(react(
+          cm.clone(),
+          Some(comments.clone()),
+          ReactOptions {
+            runtime: Some(jsx_config.runtime.unwrap_or(Runtime::Classic)),
+            import_source: jsx_config.import_source.clone().map(|value| value.into()),
+            pragma: jsx_config.pragma.clone().map(|value| value.into()),
+            pragma_frag: jsx_config.pragma_frag.clone().map(|value| value.into()),
+            development: Some(jsx_config.development),
+            ..ReactOptions::default()
+          },
+          top_level_mark,
+          unresolved_mark,
+        ));
+      } else {
+        program = program.apply(typescript(ts_config, unresolved_mark, top_level_mark));
+      }
+
+      program = program.apply(inject_helpers(unresolved_mark));
+      program = program.apply(hygiene());
+      program = program.apply(fixer(Some(&comments)));
+
+      to_code_default(cm.clone(), Some(&comments), &program)
     })
-    .build(&program);
+  });
 
-  Ok(TransformerResult {
-    code: generated.code,
-  })
+  Ok(TransformerResult { code })
 }
