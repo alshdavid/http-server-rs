@@ -203,7 +203,9 @@ jobs:
 
           gh release edit $VERSION --draft=false
 
-          payload="$(jq -n --arg repository "$GITHUB_REPOSITORY" --arg version "$VERSION" \
+          payload="$(jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg version "$VERSION" \
             '{repository: $repository, version: $version}')"
 
           curl -fsS -X POST "${{ secrets.SENTINEL_CHANGELOG_WEBHOOK }}" \
