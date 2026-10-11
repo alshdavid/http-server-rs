@@ -1,0 +1,11 @@
+{
+  "name": "http-server-rs-template",
+  "type": "module",
+  "scripts": {
+    "start": "npx http-server-rs serve --transpile"
+  },
+  "devDependencies": {
+    "preact": "*",
+    "http-server-rs": "*"
+  }
+}
