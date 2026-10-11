@@ -137,12 +137,22 @@ Options:
 Will live transpile TypeScript to JavaScript on request. This allows serving TypeScript sources 
 directly to the browser without a build step.
 
+This is designed to simplify local development for bundler-less configurations. Use native ESM imports built into your browser and create your project without a build step.
+
 ```bash
 http-server-rs serve --transpile --port 8080 ./testing/transpile/react
 
 # Returns transpiled JavaScript that runs directly in the browser
 curl http://localhost:8080/app.tsx 
 ```
+
+https://github.com/user-attachments/assets/3d1bc313-e898-42bb-8c8f-a8023c41ec35
+
+Notes;
+- Use builtin `import` syntax and get npm packages from a CDN like [esm.sh](https://esm.sh/#tsx)
+- Use [importmap](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap) to map ESM imports to Node.js resolution patterns  
+- `npm install` is only required for types. Unfortunately this requires full package installation until the TypeScript team [comes to a decision on remote declaration file](https://github.com/microsoft/TypeScript/issues/28985)
+- For performance sensitive applications, you'll still probably want to use a bundler for production - but who know, this might be good enough for most use cases
 
 ## Watch Mode
 
