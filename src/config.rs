@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::path::MAIN_SEPARATOR_STR;
+use std::time::Duration;
 
 use clap::Parser;
 use normalize_path::NormalizePath;
@@ -30,6 +31,7 @@ pub struct Config {
   pub source_maps: bool,
   pub watch: bool,
   pub watch_dir: PathBuf,
+  pub watch_debounce_delay: Duration,
   pub no_watch_inject: bool,
   pub stream_buffer_size: usize,
   pub proxy: ProxyConfig,
@@ -151,6 +153,7 @@ impl Config {
       source_maps: !command.no_source_maps,
       watch: command.watch,
       watch_dir: command.watch_dir.unwrap_or(serve_dir_abs),
+      watch_debounce_delay: Duration::from_millis(command.watch_debounce_delay),
       no_watch_inject: command.no_watch_inject,
       stream_buffer_size: command.stream_buffer_size,
       proxy,

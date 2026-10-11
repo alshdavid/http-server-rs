@@ -155,6 +155,7 @@ async fn main_async() -> anyhow::Result<()> {
     true => Some(Watcher::new(WatcherOptions {
       target_dir: config.watch_dir.clone(),
       logger: logger.clone(),
+      debounce_delay: config.watch_debounce_delay,
     })?),
     false => None,
   };

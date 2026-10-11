@@ -62,6 +62,10 @@ pub struct CliCommand {
   #[arg(long = "watch-dir")]
   pub watch_dir: Option<PathBuf>,
 
+  /// Debounce delay in milliseconds before watched changes trigger a reload
+  #[arg(long = "watch-debounce-delay", default_value = "1000")]
+  pub watch_debounce_delay: u64,
+
   /// Don't automatically inject watch listener into html
   #[arg(long = "no-watch-inject")]
   pub no_watch_inject: bool,

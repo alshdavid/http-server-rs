@@ -18,6 +18,7 @@ use crate::logger::Logger;
 pub struct WatcherOptions {
   pub target_dir: PathBuf,
   pub logger: Arc<Logger>,
+  pub debounce_delay: Duration,
 }
 
 #[derive(Clone)]
@@ -58,7 +59,7 @@ impl Watcher {
       }
     });
 
-    let mut debouncer = new_debouncer(Duration::from_millis(1000), None, tx)?;
+    let mut debouncer = new_debouncer(options.debounce_delay, None, tx)?;
     debouncer.watch(&options.target_dir, RecursiveMode::Recursive)?;
 
     Ok(Self {
