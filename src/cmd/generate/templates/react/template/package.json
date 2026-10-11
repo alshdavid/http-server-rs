@@ -2,11 +2,10 @@
   "name": "http-server-rs-template",
   "type": "module",
   "scripts": {
-    "start": "npx http-server-rs serve --transpile"
+    "start": "http-server-rs serve --transpile"
   },
   "devDependencies": {
     "@types/react": "*",
-    "@types/react-dom": "*",
-    "http-server-rs": "*"
+    "@types/react-dom": "*"
   }
 }
