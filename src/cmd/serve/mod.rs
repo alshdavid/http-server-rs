@@ -17,12 +17,10 @@ use crate::platform::logger::Logger;
 use crate::platform::proxy::build_client;
 use crate::platform::self_upgrade;
 use crate::platform::self_upgrade::UpgradeOptions;
-use crate::platform::self_upgrade::UpgradeOutcome;
+use crate::platform::self_upgrade::TARGET_REPO;
 use crate::platform::transpile::tsconfig::TsConfigCache;
 use crate::platform::watcher::Watcher;
 use crate::platform::watcher::WatcherOptions;
-
-const TARGET_REPO: &str = "alshdavid/http-server-rs";
 
 #[derive(Debug, Parser)]
 pub struct ServeCommand {
@@ -92,10 +90,6 @@ pub struct ServeCommand {
   #[arg(long = "no-watch-inject")]
   pub no_watch_inject: bool,
 
-  /// Upgrade the binary to the latest release
-  #[arg(long = "upgrade", default_value_t = false)]
-  pub upgrade: bool,
-
   /// Skip checking for a newer release on startup
   #[arg(long = "skip-upgrade-check", default_value_t = false)]
   pub skip_upgrade_check: bool,
@@ -112,30 +106,6 @@ pub struct ServeCommand {
 
 pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
   let config = Arc::new(Config::from_args(args)?);
-
-  if config.upgrade {
-    println!("Starting Self Upgrade");
-
-    let outcome = self_upgrade::try_upgrade(&UpgradeOptions {
-      target_repo: TARGET_REPO,
-      current_version: &config.version,
-    })
-    .await;
-
-    match outcome {
-      Ok(UpgradeOutcome::Skip) => {
-        println!("Already on the latest version ({})", config.version);
-      }
-      Ok(UpgradeOutcome::Success) => {
-        println!("Upgrade complete");
-      }
-      Err(err) => {
-        eprintln!("Upgrade failed: {err}");
-      }
-    }
-
-    return Ok(());
-  }
 
   let logger: Arc<Logger> = match config.quiet {
     true => Arc::new(Logger::Quiet),
@@ -154,7 +124,7 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
 
         if let Ok(Some(latest)) = available {
           println!(
-            "⚡ Update available: {} -> {}  (run `http-server-rs --upgrade`)",
+            "⚡ Update available: {} -> {}  (run `http-server-rs update`)",
             version, latest
           );
         }

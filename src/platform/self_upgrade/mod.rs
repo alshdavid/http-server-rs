@@ -7,6 +7,8 @@ use self_update::ReleaseAsset;
 
 const BIN_NAME: &str = "http-server-rs";
 
+pub const TARGET_REPO: &str = "alshdavid/http-server-rs";
+
 pub async fn check_for_update(
   options: &UpgradeOptions<'_>
 ) -> anyhow::Result<Option<semver::Version>> {
