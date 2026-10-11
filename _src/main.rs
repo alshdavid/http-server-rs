@@ -1,0 +1,634 @@
+#![deny(unused_crate_dependencies)]
+#![allow(clippy::module_inception)]
+
+mod b64;
+mod cli;
+mod compress;
+mod config;
+mod constants;
+mod explorer;
+mod http1;
+mod ip_address;
+mod logger;
+mod proxy;
+mod self_upgrade;
+mod transpile;
+mod watcher;
+
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::mpsc::channel;
+use std::sync::Arc;
+
+use colored::Colorize;
+use explorer::reload_script;
+use explorer::render_directory_explorer;
+use http1::http1_server;
+use http1::ResponseBuilderExt;
+use logger::Logger;
+use mime_guess;
+use normalize_path::NormalizePath;
+use proxy::build_client;
+use proxy::match_proxy_route;
+use proxy::proxy_request;
+use tokio::fs::File;
+use tokio::io;
+use tokio::io::AsyncWriteExt;
+use watcher::Watcher;
+use watcher::WatcherOptions;
+
+use crate::config::Config;
+use crate::constants as c;
+use crate::ip_address::DomainOptions;
+use crate::self_upgrade::UpgradeOptions;
+use crate::self_upgrade::UpgradeOutcome;
+
+async fn main_async() -> anyhow::Result<()> {
+  let config = Arc::new(Config::from_cli()?);
+
+  if config.upgrade {
+    println!("Starting Self Upgrade");
+
+    let outcome = crate::self_upgrade::try_upgrade(&UpgradeOptions {
+      target_repo: "alshdavid/http-server-rs",
+      current_version: &config.version,
+    })
+    .await;
+
+    match outcome {
+      Ok(UpgradeOutcome::Skip) => {
+        println!("Already on the latest version ({})", config.version);
+      }
+      Ok(UpgradeOutcome::Success) => {
+        println!("Upgrade complete");
+      }
+      Err(err) => {
+        eprintln!("Upgrade failed: {err}");
+      }
+    }
+
+    return Ok(());
+  }
+
+  let logger: Arc<Logger> = match config.quiet {
+    true => Arc::new(Logger::Quiet),
+    false => Arc::new(Logger::Default),
+  };
+
+  if !config.quiet && !config.skip_upgrade_check {
+    tokio::spawn({
+      let version = config.version.clone();
+      async move {
+        let available = crate::self_upgrade::check_for_update(&UpgradeOptions {
+          target_repo: "alshdavid/http-server-rs",
+          current_version: &version,
+        })
+        .await;
+
+        if let Ok(Some(latest)) = available {
+          println!(
+            "⚡ Update available: {} -> {}  (run `http-server-rs --upgrade`)",
+            version, latest
+          );
+        }
+      }
+    });
+  }
+
+  logger.println(
+    format!("🚀 HTTP Server 🌏 v{}", config.version)
+      .green()
+      .bold()
+      .to_string(),
+  );
+  logger.br();
+
+  logger.print_folder(&config.serve_dir_fmt);
+  logger.print_config("Directory Listings", &true);
+  logger.print_config("Compress (JIT)", &config.compress);
+  logger.print_config("CORS", &config.cors);
+  logger.print_config("SharedArrayBuffer", &config.sab);
+  logger.print_config("SPA", &config.spa);
+  logger.print_config("Watch", &config.watch);
+  logger.print_config("Transpile", &config.transpile);
+  logger.print_config("Source Maps", &config.source_maps);
+  logger.br();
+
+  if !config.proxy.is_empty() {
+    for (path, route) in config.proxy.iter() {
+      logger.println(format!(
+        "🔀 {:<19} {} -> {}",
+        format!("{}:", path).bold(),
+        path,
+        route.target
+      ));
+    }
+    logger.br();
+  }
+
+  logger.print_headers(&config.headers);
+  logger.br();
+
+  logger.println(format!("🔗 http://{}", config.domain));
+  if config.domain != config.domain_pretty {
+    logger.println(format!("🔗 http://{}", config.domain_pretty));
+  }
+
+  if let Some(intranet_domain) = ip_address::get_domain(&DomainOptions {
+    domain: &config.domain,
+    domain_pretty: &config.domain_pretty,
+    port: config.port,
+  }) {
+    logger.println(format!("🔗 http://{}", intranet_domain));
+  }
+
+  logger.br();
+
+  logger.println("📜 LOGS 📜".bold().blue().to_string());
+
+  let watcher = match config.watch {
+    true => Some(Watcher::new(WatcherOptions {
+      target_dir: config.watch_dir.clone(),
+      logger: logger.clone(),
+      debounce_delay: config.watch_debounce_delay,
+    })?),
+    false => None,
+  };
+
+  let proxy_client = match config.proxy.is_empty() {
+    true => None,
+    false => Some(Arc::new(build_client())),
+  };
+
+  let tsconfig_cache = Arc::new(transpile::tsconfig::TsConfigCache::new());
+
+  http1_server(&config.domain, {
+    let config = config.clone();
+    let logger = logger.clone();
+    let watcher = watcher.clone();
+    let proxy_client = proxy_client.clone();
+    let tsconfig_cache = tsconfig_cache.clone();
+
+    move |req, mut res| {
+      let config = config.clone();
+      let logger = logger.clone();
+      let watcher = watcher.clone();
+      let proxy_client = proxy_client.clone();
+      let tsconfig_cache = tsconfig_cache.clone();
+
+      async move {
+        // Basic Auth
+        if !config.basic_auth.is_empty() {
+          let Some(header) = req.headers().get("authorization") else {
+            return Ok(
+              res
+                .header(
+                  "WWW-Authenticate",
+                  "Basic realm=\"http-server-rs\"".to_string(),
+                )
+                .status(401)
+                .body_from("")?,
+            );
+          };
+
+          let Some((_, token)) = header.to_str()?.split_once(" ") else {
+            return Ok(res.status(500).body_from("Invalid basic auth header")?);
+          };
+
+          let decoded = b64::decode_string(token)?;
+
+          let Some((username, password)) = decoded.split_once(":") else {
+            return Ok(res.status(500).body_from("Invalid basic auth header")?);
+          };
+
+          let Some(creds) = config.basic_auth.get(username) else {
+            return Ok(res.status(403).body_from("")?);
+          };
+
+          if creds != password {
+            return Ok(res.status(403).body_from("")?);
+          }
+        }
+
+        // Reverse proxy routes
+        if let Some((_proxy_path, route)) = match_proxy_route(&config.proxy, req.uri().path()) {
+          let Some(proxy_client) = proxy_client else {
+            return Ok(res.status(500).body_from("Proxy client not available")?);
+          };
+
+          let target = route.target.clone();
+          let request_uri = req.uri().clone();
+
+          logger.println(format!(
+            "{} {} -> {}",
+            "[proxy]".blue().bold(),
+            request_uri,
+            target
+          ));
+
+          let response = proxy_request(&proxy_client, route, req).await?;
+
+          logger.println(format!(
+            "{} {} -> {} {}",
+            "[proxy]".blue().bold(),
+            request_uri,
+            target,
+            response.status()
+          ));
+
+          return Ok(response);
+        }
+
+        // Remove the leading slash
+        let req_path = req.uri().path().to_string().replacen("/", "", 1);
+        let req_path = urlencoding::decode(&req_path)?.to_string();
+
+        // Guess the file path of the file to serve
+        let mut file_path = config.serve_dir_abs.join(req_path.clone());
+
+        // If the watcher is enabled, return an event stream to the client to notify changes
+        if req_path == ".http-server-rs/reload.js" {
+          if !config.watch {
+            return Ok(res.status(404).body_from("Watcher not running")?);
+          };
+
+          return Ok(
+            res
+              .header(
+                "Content-Type",
+                format!("application/javascript; {}", c::DEFAULT_CHARSET_SUFFIX),
+              )
+              .status(200)
+              .body_from(reload_script())?,
+          );
+        }
+
+        // Endpoint for filesystem change event stream
+        if req_path == ".http-server-rs/reload" {
+          let Some(watcher) = watcher else {
+            return Ok(res.status(404).body_from("Watcher not running")?);
+          };
+
+          let (res, mut writer) = res
+            .header("X-Accel-Buffering", "no")
+            .header(
+              "Content-Type",
+              format!("text/event-stream; {}", c::DEFAULT_CHARSET_SUFFIX),
+            )
+            .header("Cache-Control", "no-cache")
+            .header("Connection", "keep-alive")
+            .status(hyper::StatusCode::OK)
+            .body_stream(config.stream_buffer_size)?;
+
+          let mut rx = watcher.subscribe();
+
+          tokio::task::spawn(async move {
+            while rx.changed().await.is_ok() {
+              let msg = format!(
+                "data:{}\n\n",
+                rx.borrow_and_update()
+                  .iter()
+                  .map(|v| v.to_str().unwrap().to_string())
+                  .collect::<Vec<String>>()
+                  .join(",")
+              );
+              if writer.write_all(msg.as_bytes()).await.is_err() {
+                break;
+              }
+            }
+          });
+
+          return Ok(res);
+        }
+
+        if let Some(file) = req_path.strip_prefix(".http-server-rs/swc/") {
+          let source = file
+            .strip_suffix(".js")
+            .and_then(transpile::helpers::module_source);
+
+          let Some(source) = source else {
+            logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
+            return Ok(res.status(404).body_from("Unknown helper")?);
+          };
+
+          logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+          return Ok(
+            res
+              .header(
+                "Content-Type",
+                format!("application/javascript; {}", c::DEFAULT_CHARSET_SUFFIX),
+              )
+              .status(200)
+              .body_from(source)?,
+          );
+        }
+
+        // hyper handles preventing access to parent directories via "../../"
+        // but this is an extra layer of protection
+        if !file_path.normalize().starts_with(&config.serve_dir_abs) {
+          logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+          return Ok(res.status(403).body_from("Not allowed")?);
+        }
+
+        // Source maps are requested as the `.map` sibling of a transpiled file
+        if config.transpile && config.source_maps {
+          if let Some(map) = transpile_source_map(&config, &tsconfig_cache, &req_path).await? {
+            logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+            return Ok(
+              res
+                .header(
+                  "Content-Type",
+                  format!("application/json; {}", c::DEFAULT_CHARSET_SUFFIX),
+                )
+                .status(200)
+                .body_from(map)?,
+            );
+          }
+        }
+
+        // Redirect directory requests to a trailing slash so that relative
+        // URLs within (e.g. "./main.tsx") resolve against the directory
+        // rather than the parent.
+        if file_path.is_dir() && !req.uri().path().ends_with('/') {
+          let mut location = format!("{}/", req.uri().path());
+
+          if let Some(query) = req.uri().query() {
+            location.push('?');
+            location.push_str(query);
+          }
+
+          logger.println(format!("{} {}", "[301]".yellow().bold(), req.uri()));
+
+          return Ok(res.header("Location", location).status(301).body_from("")?);
+        }
+
+        // Try to serve index.html
+        if file_path.is_dir() && file_path.join("index.html").exists() {
+          file_path = file_path.join("index.html");
+        }
+
+        // Apply custom headers
+        for (key, values) in config.headers.iter() {
+          for value in values.iter() {
+            res = res.header(key, value);
+          }
+        }
+
+        // Serve folder explorer
+        if file_path.is_dir() {
+          let mut output = render_directory_explorer(&config, &req_path, &file_path)?;
+
+          if config.watch {
+            output = format!("{}\n<script>{}</script>", output, reload_script());
+          }
+
+          // Todo check file charset
+          return Ok(
+            res
+              .header(
+                "Content-Type",
+                format!("text/html;{}", c::DEFAULT_CHARSET_SUFFIX),
+              )
+              .status(200)
+              .body_from(output)?,
+          );
+        }
+
+        // If SPA and file doesn't exist, route to root index
+        if config.spa && !file_path.exists() {
+          file_path = config.serve_dir_abs.join("index.html");
+        }
+
+        // If not SPA an file doesn't exist, route to 404.html
+        if !config.spa && !file_path.exists() {
+          file_path = config.serve_dir_abs.join("404.html");
+        }
+
+        // 404 if no file exists
+        if !file_path.exists() {
+          logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
+          return Ok(res.status(404).body_from("File not found")?);
+        }
+
+        let ext = file_path
+          .extension()
+          .and_then(|v| v.to_str())
+          .unwrap_or_default()
+          .to_string();
+
+        if config.transpile && (ext == "ts" || ext == "tsx") {
+          let result =
+            transpile_file(&config, &tsconfig_cache, &file_path, &req_path, &ext).await?;
+
+          let map_name = file_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+
+          let code = match result.map {
+            Some(_) => format!("{}\n//# sourceMappingURL={}.map\n", result.code, map_name),
+            None => result.code,
+          };
+
+          logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+          let content_type = format!("application/javascript; {}", c::DEFAULT_CHARSET_SUFFIX);
+
+          if config.compress {
+            res = res.header("Content-Encoding", "br");
+            return Ok(
+              res
+                .header("Content-Type", content_type)
+                .status(200)
+                .body_from(compress::brotli(code.as_bytes()))?,
+            );
+          }
+
+          return Ok(
+            res
+              .header("Content-Type", content_type)
+              .status(200)
+              .body_from(code)?,
+          );
+        }
+
+        // Apply mime type
+        let mime = self::mime_guess::from_path(&file_path)
+          .first()
+          .map(|v| v.to_string())
+          .unwrap_or_default();
+
+        if !mime.is_empty() {
+          let mut content_type = mime.clone();
+          // mime starts with "text/" or "application/"
+          if content_type.starts_with("text/")
+            || content_type.starts_with("application/javascript")
+            || content_type.starts_with("application/json")
+          {
+            // Todo check file charset
+            content_type = format!("{}; {}", content_type, c::DEFAULT_CHARSET_SUFFIX);
+          }
+          res = res.header("Content-Type", &content_type);
+        }
+
+        // If a .br or .gz file is found next to the target, serve that file
+        if !config.compress {
+          let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
+          let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
+
+          if brotli_path.exists() {
+            file_path = brotli_path;
+            res = res.header("Content-Encoding", "br");
+          } else if gzip_path.exists() {
+            file_path = gzip_path;
+            res = res.header("Content-Encoding", "gzip");
+          }
+        }
+
+        let mut file = File::open(&file_path).await?;
+
+        #[cfg(unix)]
+        let content_length = file.metadata().await?.size();
+        #[cfg(windows)]
+        let content_length = file.metadata().await?.file_size();
+
+        logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+        // Read file
+        // Stream file if it's larger than 5mb
+        if !mime.starts_with("text/html") && content_length > 500_000 {
+          let (res, mut writer) = res
+            .header("Connection", "keep-alive")
+            .header("Content-Length", content_length)
+            .status(hyper::StatusCode::OK)
+            .body_stream(config.stream_buffer_size)?;
+
+          tokio::task::spawn(async move {
+            io::copy(&mut file, &mut writer).await.ok();
+          });
+
+          return Ok(res);
+        }
+
+        let Ok(mut contents) = tokio::fs::read(&file_path).await else {
+          return Ok(res.status(500).body_from("Unable to open file")?);
+        };
+
+        // If using watch mode and automatically injecting the reload script
+        // and file is html, mutate response to inject script
+        if config.watch
+          && !config.no_watch_inject
+          && res
+            .headers_ref()
+            .unwrap()
+            .get("Content-Type")
+            .is_some_and(|h| h.to_str().unwrap_or("").starts_with("text/html"))
+        {
+          let html = String::from_utf8(contents.clone())?;
+          if html.contains("<head>") {
+            contents = html
+              .replacen(
+                "<head>",
+                &format!("<head>\n<script>{}</script>\n", reload_script(),),
+                1,
+              )
+              .as_bytes()
+              .to_vec();
+          } else if html.contains("<body>") {
+            contents = html
+              .replacen(
+                "<body>",
+                &format!("<body>\n<script>{}</script>\n", reload_script()),
+                1,
+              )
+              .as_bytes()
+              .to_vec();
+          } else {
+            contents.extend(format!("<script>{}</script>", reload_script()).as_bytes());
+          }
+        }
+
+        if config.compress {
+          res = res.header("Content-Encoding", "br");
+          Ok(res.status(200).body_from(compress::brotli(&contents))?)
+        } else {
+          Ok(res.status(200).body_from(contents)?)
+        }
+      }
+    }
+  })
+  .await?;
+
+  Ok(())
+}
+
+async fn transpile_file(
+  config: &Config,
+  tsconfig_cache: &transpile::tsconfig::TsConfigCache,
+  file_path: &Path,
+  url_path: &str,
+  kind: &str,
+) -> anyhow::Result<transpile::TransformerResult> {
+  let content = tokio::fs::read(file_path).await?;
+
+  let tsconfig = tsconfig_cache.resolve(file_path, &config.serve_dir_abs);
+
+  transpile::typescript::transpile(transpile::TransformerContext {
+    content,
+    path: file_path.to_path_buf(),
+    source_url: format!("/{}", url_path),
+    source_maps: config.source_maps,
+    kind: kind.to_string(),
+    tsconfig,
+  })
+}
+
+/// Resolve a `.map` request to the source map of the transpiled file it names.
+async fn transpile_source_map(
+  config: &Config,
+  tsconfig_cache: &transpile::tsconfig::TsConfigCache,
+  req_path: &str,
+) -> anyhow::Result<Option<String>> {
+  let Some(source_path) = req_path.strip_suffix(".map") else {
+    return Ok(None);
+  };
+
+  let file_path = config.serve_dir_abs.join(source_path);
+
+  let kind = file_path
+    .extension()
+    .and_then(|value| value.to_str())
+    .unwrap_or_default();
+
+  if !matches!(kind, "ts" | "tsx") || !file_path.is_file() {
+    return Ok(None);
+  }
+
+  let result = transpile_file(config, tsconfig_cache, &file_path, source_path, kind).await?;
+
+  Ok(result.map)
+}
+
+fn main() -> anyhow::Result<()> {
+  let (tx, rx) = channel::<anyhow::Result<()>>();
+
+  std::thread::spawn(move || {
+    tx.send(
+      tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(num_cpus::get_physical())
+        .build()
+        .unwrap()
+        .block_on(main_async()),
+    )
+    .unwrap();
+  });
+
+  rx.recv()?
+}

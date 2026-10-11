@@ -22,7 +22,6 @@ use self::unix::get_meta_size;
 use self::windows::get_meta_mode;
 #[cfg(windows)]
 use self::windows::get_meta_size;
-use crate::config::Config;
 
 const DIR_PAGE: &str = include_str!("./dir.hbs");
 const RELOAD_SCRIPT: &str = include_str!("./reload.mjs");
@@ -31,8 +30,14 @@ pub fn reload_script() -> &'static str {
   RELOAD_SCRIPT
 }
 
+pub struct RenderDirectoryExplorerConfig {
+  pub serve_dir_abs: PathBuf,
+  pub address: String,
+  pub port: usize,
+}
+
 pub fn render_directory_explorer(
-  config: &Config,
+  config: &RenderDirectoryExplorerConfig,
   req_uri: &str,
   file_path: &Path,
 ) -> anyhow::Result<String> {

@@ -13,7 +13,7 @@ use notify_debouncer_full::Debouncer;
 use notify_debouncer_full::RecommendedCache;
 use tokio::sync::watch;
 
-use crate::logger::Logger;
+use crate::platform::logger::Logger;
 
 pub struct WatcherOptions {
   pub target_dir: PathBuf,

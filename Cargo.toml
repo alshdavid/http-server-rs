@@ -54,6 +54,7 @@ tokio = { version = "1.53.2", features = [
   "fs",
   "net",
   "signal",
+  "macros"
 ] }
 tokio-util = { version = "0.7.19", features = [
   "io",
