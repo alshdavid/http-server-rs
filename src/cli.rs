@@ -50,6 +50,10 @@ pub struct CliCommand {
   #[arg(short = 't', long = "transpile")]
   pub transpile: bool,
 
+  /// Don't generate source maps for transpiled files
+  #[arg(long = "no-source-maps")]
+  pub no_source_maps: bool,
+
   /// Watch folder for changes and trigger a browser reload
   #[arg(short = 'w', long = "watch")]
   pub watch: bool,

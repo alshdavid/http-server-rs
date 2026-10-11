@@ -7,7 +7,7 @@ pub mod typescript;
 #[derive(Debug)]
 pub struct TransformerResult {
   pub code: String,
-  pub map: String,
+  pub map: Option<String>,
 }
 
 pub struct TransformerContext {
@@ -17,6 +17,8 @@ pub struct TransformerContext {
   pub path: PathBuf,
   /// URL path the file is served from, used as the source map source
   pub source_url: String,
+  /// Whether to generate a source map for the output
+  pub source_maps: bool,
   /// The extension of the file being processed
   pub kind: String,
   /// The nearest `tsconfig.json` compiler options, if one was found

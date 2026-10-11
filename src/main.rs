@@ -117,6 +117,7 @@ async fn main_async() -> anyhow::Result<()> {
   logger.print_config("SPA", &config.spa);
   logger.print_config("Watch", &config.watch);
   logger.print_config("Transpile", &config.transpile);
+  logger.print_config("Source Maps", &config.source_maps);
   logger.br();
 
   if !config.proxy.is_empty() {
@@ -336,7 +337,7 @@ async fn main_async() -> anyhow::Result<()> {
         }
 
         // Source maps are requested as the `.map` sibling of a transpiled file
-        if config.transpile {
+        if config.transpile && config.source_maps {
           if let Some(map) = transpile_source_map(&config, &tsconfig_cache, &req_path).await? {
             logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
@@ -431,7 +432,10 @@ async fn main_async() -> anyhow::Result<()> {
             .and_then(|value| value.to_str())
             .unwrap_or_default();
 
-          let code = format!("{}\n//# sourceMappingURL={}.map\n", result.code, map_name);
+          let code = match result.map {
+            Some(_) => format!("{}\n//# sourceMappingURL={}.map\n", result.code, map_name),
+            None => result.code,
+          };
 
           logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
@@ -580,6 +584,7 @@ async fn transpile_file(
     content,
     path: file_path.to_path_buf(),
     source_url: format!("/{}", url_path),
+    source_maps: config.source_maps,
     kind: kind.to_string(),
     tsconfig,
   })
@@ -608,7 +613,7 @@ async fn transpile_source_map(
 
   let result = transpile_file(config, tsconfig_cache, &file_path, source_path, kind).await?;
 
-  Ok(Some(result.map))
+  Ok(result.map)
 }
 
 fn main() -> anyhow::Result<()> {

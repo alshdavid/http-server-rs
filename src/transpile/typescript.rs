@@ -194,7 +194,7 @@ pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
   let (code, map) = GLOBALS.set(&globals, || {
     HELPERS.set(
       &Helpers::new(external_helpers),
-      || -> anyhow::Result<(String, String)> {
+      || -> anyhow::Result<(String, Option<String>)> {
         let unresolved_mark = Mark::new();
         let top_level_mark = Mark::new();
 
@@ -263,30 +263,38 @@ pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
         }
 
         let mut code = Vec::new();
-        let mut mappings = Vec::new();
+        let mut mappings = ctx.source_maps.then(Vec::new);
 
         {
           let mut emitter = Emitter {
             cfg: CodegenConfig::default(),
             cm: cm.clone(),
             comments: Some(&comments),
-            wr: JsWriter::new(cm.clone(), "\n", &mut code, Some(&mut mappings)),
+            wr: JsWriter::new(cm.clone(), "\n", &mut code, mappings.as_mut()),
           };
 
           emitter.emit_program(&program)?;
         }
 
-        let source_map = cm.build_source_map(
-          &mappings,
-          None,
-          SourceMapConfig {
-            source_url: ctx.source_url.clone(),
-          },
-        );
-        let mut map = Vec::new();
-        source_map.to_writer(&mut map)?;
+        let map = match mappings {
+          Some(mappings) => {
+            let source_map = cm.build_source_map(
+              &mappings,
+              None,
+              SourceMapConfig {
+                source_url: ctx.source_url.clone(),
+              },
+            );
 
-        Ok((String::from_utf8(code)?, String::from_utf8(map)?))
+            let mut map = Vec::new();
+            source_map.to_writer(&mut map)?;
+
+            Some(String::from_utf8(map)?)
+          }
+          None => None,
+        };
+
+        Ok((String::from_utf8(code)?, map))
       },
     )
   })?;

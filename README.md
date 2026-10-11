@@ -95,6 +95,8 @@ Options:
           Don't print any logs to terminal
   -t, --transpile
           Transpile served files
+      --no-source-maps
+          Don't generate source maps for transpiled files
   -w, --watch
           Watch folder for changes and trigger a browser reload
       --watch-dir <WATCH_DIR>
