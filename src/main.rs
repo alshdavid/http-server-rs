@@ -14,7 +14,6 @@ mod logger;
 mod proxy;
 mod self_upgrade;
 mod transpile;
-mod utils;
 mod watcher;
 
 #[cfg(unix)]
@@ -288,11 +287,11 @@ async fn main_async() -> anyhow::Result<()> {
           let mut rx = watcher.subscribe();
 
           tokio::task::spawn(async move {
-            while let Some(changes) = rx.recv().await {
+            while rx.changed().await.is_ok() {
               let msg = format!(
                 "data:{}\n\n",
-                changes
-                  .into_iter()
+                rx.borrow_and_update()
+                  .iter()
                   .map(|v| v.to_str().unwrap().to_string())
                   .collect::<Vec<String>>()
                   .join(",")

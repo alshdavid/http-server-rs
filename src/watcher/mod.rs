@@ -11,10 +11,9 @@ use notify_debouncer_full::notify::RecursiveMode;
 use notify_debouncer_full::DebounceEventResult;
 use notify_debouncer_full::Debouncer;
 use notify_debouncer_full::RecommendedCache;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::watch;
 
 use crate::logger::Logger;
-use crate::utils::broadcast::BroadcastChannel;
 
 pub struct WatcherOptions {
   pub target_dir: PathBuf,
@@ -23,18 +22,18 @@ pub struct WatcherOptions {
 
 #[derive(Clone)]
 pub struct Watcher {
-  trx_watch: Arc<BroadcastChannel<Vec<PathBuf>>>,
+  tx_watch: watch::Sender<Vec<PathBuf>>,
   _debouncer: Arc<Debouncer<RecommendedWatcher, RecommendedCache>>,
 }
 
 impl Watcher {
   pub fn new(options: WatcherOptions) -> anyhow::Result<Self> {
-    let trx_watch = Arc::new(BroadcastChannel::<Vec<PathBuf>>::new());
+    let (tx_watch, _) = watch::channel(Vec::<PathBuf>::new());
 
     let (tx, rx) = std::sync::mpsc::channel::<DebounceEventResult>();
 
     thread::spawn({
-      let trx_watch = trx_watch.clone();
+      let tx_watch = tx_watch.clone();
       let logger = options.logger.clone();
 
       move || {
@@ -53,7 +52,7 @@ impl Watcher {
 
           if !paths.is_empty() {
             logger.println(format!("{}", "[CNG] ".yellow().bold()));
-            trx_watch.send(paths).unwrap();
+            tx_watch.send_replace(paths);
           }
         }
       }
@@ -63,12 +62,12 @@ impl Watcher {
     debouncer.watch(&options.target_dir, RecursiveMode::Recursive)?;
 
     Ok(Self {
-      trx_watch,
+      tx_watch,
       _debouncer: Arc::new(debouncer),
     })
   }
 
-  pub fn subscribe(&self) -> UnboundedReceiver<Vec<PathBuf>> {
-    self.trx_watch.subscribe()
+  pub fn subscribe(&self) -> watch::Receiver<Vec<PathBuf>> {
+    self.tx_watch.subscribe()
   }
 }
