@@ -33,7 +33,9 @@ npx http-server-rs --help # Uses the override
 
 ### Manual Install
 
-Download the latest binary from [GitHub Releases](https://github.com/alshdavid-public/http-server-rs/releases/latest) and add it to your `PATH`
+Download the latest binary from [GitHub Releases](https://github.com/alshdavid-public/http-server-rs/releases/latest) and add it to your `PATH`.
+
+Update with `http-server-rs update`
 
 ```bash
 # Linux AMD64 (Change for your platform)
@@ -48,26 +50,41 @@ echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.bashrc
 
 ```bash
 # Use default configuration
-http-server-rs
+http-server-rs serve
 
 # Enable CORS, reroute requests to index.html and automatically compress served files
-http-server-rs --cors --spa -Z ./public
+http-server-rs serve --cors --spa -Z ./public
 
 # Responds with headers required for SharedArrayBuffer
-http-server-rs --shared-array-buffer ./public
+http-server-rs serve --shared-array-buffer ./public
 
 # Automatically transpiles TypeScript to JavaScript on request
-http-server-rs --transpile ./public
+http-server-rs serve --transpile ./public
 
 # Proxy /api to an external backend (quotes are required)
-http-server-rs --proxy "path=/api&target=http://localhost:3000" ./public
+http-server-rs serve --proxy "path=/api&target=http://localhost:3000" ./public
 
 # Custom Headers
-http-server-rs -H X-Custom-Header:some-value
+http-server-rs serve -H X-Custom-Header:some-value
+
+# Update the binary to the latest release
+http-server-rs update
 ```
 
 ```
-Usage: http-server-rs [OPTIONS] [SERVE_DIR]
+Usage: http-server-rs <COMMAND>
+
+Commands:
+  serve   Serve a target directory over HTTP
+  update  Update the binary to the latest release
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+```
+Usage: http-server-rs serve [OPTIONS] [SERVE_DIR]
 
 Arguments:
   [SERVE_DIR]  Target directory to serve [default: .]
@@ -105,8 +122,6 @@ Options:
           Debounce delay in milliseconds before watched changes trigger a reload [default: 200]
       --no-watch-inject
           Don't automatically inject watch listener into html
-      --upgrade
-          Upgrade the binary to the latest release
       --skip-upgrade-check
           Skip checking for a newer release on startup
       --stream-buffer-size <STREAM_BUFFER_SIZE>
@@ -123,7 +138,7 @@ Will live transpile TypeScript to JavaScript on request. This allows serving Typ
 directly to the browser without a build step.
 
 ```bash
-http-server-rs --transpile --port 8080 ./testing/transpile/react
+http-server-rs serve --transpile --port 8080 ./testing/transpile/react
 
 # Returns transpiled JavaScript that runs directly in the browser
 curl http://localhost:8080/app.tsx 
@@ -134,13 +149,13 @@ curl http://localhost:8080/app.tsx
 `http-server` under `--watch` mode can watch the served directory for changes and emit an event to the client notifying of a change. By default the server will intercept html files and inject a JavaScript script which subscribes to change events and triggers a page reload.
 
 ```bash
-http-server --watch ./dist
+http-server-rs serve --watch ./dist
 ```
 
 To customize the reload functionality, disable the auto-inject script, manually subscribe to change events and trigger the desired functionality.
 
 ```bash
-http-server --watch --no-watch-inject ./dist
+http-server-rs serve --watch --no-watch-inject ./dist
 ```
 
 ```html
@@ -156,31 +171,3 @@ http-server --watch --no-watch-inject ./dist
   </body>
 </html>
 ```
-
-## Installation
-
-### MacOS & Linux
-
-Download the binary from the [latest GitHub release](https://github.com/alshdavid/http-server-rs/releases/latest) and add it to your `PATH`
-
-```shell
-# Linux AMD64
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-linux-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
-
-# Linux ARM64
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-linux-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin
-
-# MacOS ARM64 (Apple Silicon)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-macos-arm64.tar.gz | tar -xvzf - -C $HOME/.local/bin 
-
-# MacOS AMD64 (Intel)
-curl -L --url https://github.com/alshdavid/http-server-rs/releases/latest/download/http-server-rs-macos-amd64.tar.gz | tar -xvzf - -C $HOME/.local/bin
-
-# Add to PATH if not already there:
-echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.zshrc
-echo "\nexport \PATH=\$PATH:\$HOME/.local/bin\n" >> $HOME/.bashrc
-```
-
-### Windows
-
-Download the binary from the [latest GitHub release](https://github.com/alshdavid/http-server-rs/releases/latest) and add it to your `PATH`
