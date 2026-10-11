@@ -12,8 +12,10 @@ struct Command {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+  /// Serve a target directory over HTTP
   #[clap(name = "serve")]
   Serve(cmd::serve::ServeCommand),
+  /// Update the binary to the latest release
   #[clap(name = "update")]
   Update(cmd::update::UpdateCommand),
 }
