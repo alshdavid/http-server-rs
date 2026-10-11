@@ -15,6 +15,9 @@ enum Commands {
   /// Serve a target directory over HTTP
   #[clap(name = "serve")]
   Serve(cmd::serve::ServeCommand),
+  /// Generate a template project
+  #[clap(name = "generate", visible_aliases = ["gen", "g"])]
+  Generate(cmd::generate::GenerateCommand),
   /// Update the binary to the latest release
   #[clap(name = "update")]
   Update(cmd::update::UpdateCommand),
@@ -23,6 +26,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   match Command::parse().command {
+    Commands::Generate(args) => cmd::generate::main(args).await,
     Commands::Serve(args) => cmd::serve::main(args).await,
     Commands::Update(args) => cmd::update::main(args).await,
   }
