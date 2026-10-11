@@ -42,10 +42,9 @@ pub async fn main(args: GenerateCommand) -> anyhow::Result<()> {
   }
 
   match args.template {
+    Template::Preact => templates::preact::generate(&args.out_dir)?,
+    Template::React => templates::react::generate(&args.out_dir)?,
     Template::Vanilla => templates::vanilla::generate(&args.out_dir)?,
-    Template::Preact | Template::React => {
-      anyhow::bail!("The {} template is not available yet", args.template.name())
-    }
   }
 
   println!(
