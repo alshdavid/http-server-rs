@@ -132,14 +132,12 @@ Options:
           Print help
 ```
 
-## On-The-Fly Transpile TypeScript
+## On-The-Fly TypeScript Transpilation
 
-Will on-the-fly transpile TypeScript to JavaScript on request. This allows serving TypeScript sources 
+Write your application as if your browser natively supports TypeScript.
+
+The server will on-the-fly transpile TypeScript to JavaScript on request. This allows serving TypeScript sources 
 directly to the browser without a build step.
-
-The idea is that you write your web application as if your browser natively supports TypeScript. It's equivalent to writing your application in module JavaScript with jsdoc, but using TypeScript.
-
-This is to simplify local development for bundler-less configurations. Uses native ESM imports built into your browser allowing for a zero-build step development experience.
 
 ```bash
 http-server-rs serve --transpile --port 8080 ./testing/transpile/react
@@ -154,8 +152,8 @@ Notes;
 - Use builtin `import` syntax
 - Libraries are fetched from a CDN (like [esm.sh](https://esm.sh/#tsx)) or vendored locally (no `npm`)
 - [importmap](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap) is used to map ESM specifiers (e.g. `import 'react'`)  
-- At the moment, Deno is used for type checking.
-  - Unfortunately, [TypeScript does not support remote declaration file](https://github.com/microsoft/TypeScript/issues/28985). If you want to use tsc you need to install packages using `npm` and configure a `tsconfig.json`.
+- Deno is used for type checking
+  - Unfortunately, [TypeScript does not support remote declaration files](https://github.com/microsoft/TypeScript/issues/28985). If you want to use tsc you need to install packages using `npm` and configure a `tsconfig.json`.
 - For performance sensitive applications, you'll still probably want to use a bundler for production - but who know, this might be good enough for most use cases
 
 ## Watch Mode
