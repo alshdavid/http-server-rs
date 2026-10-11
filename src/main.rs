@@ -1,7 +1,6 @@
 #![deny(unused_crate_dependencies)]
 #![allow(clippy::module_inception)]
 
-mod auth;
 mod b64;
 mod cli;
 mod compress;
