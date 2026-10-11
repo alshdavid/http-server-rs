@@ -21,6 +21,7 @@ mod watcher;
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::sync::Arc;
@@ -334,6 +335,23 @@ async fn main_async() -> anyhow::Result<()> {
           return Ok(res.status(403).body_from("Not allowed")?);
         }
 
+        // Source maps are requested as the `.map` sibling of a transpiled file
+        if config.transpile {
+          if let Some(map) = transpile_source_map(&config, &tsconfig_cache, &req_path).await? {
+            logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+            return Ok(
+              res
+                .header(
+                  "Content-Type",
+                  format!("application/json; {}", c::DEFAULT_CHARSET_SUFFIX),
+                )
+                .status(200)
+                .body_from(map)?,
+            );
+          }
+        }
+
         // Redirect directory requests to a trailing slash so that relative
         // URLs within (e.g. "./main.tsx") resolve against the directory
         // rather than the parent.
@@ -405,16 +423,15 @@ async fn main_async() -> anyhow::Result<()> {
           .to_string();
 
         if config.transpile && (ext == "ts" || ext == "tsx") {
-          let contents = tokio::fs::read(&file_path).await?;
+          let result =
+            transpile_file(&config, &tsconfig_cache, &file_path, &req_path, &ext).await?;
 
-          let tsconfig = tsconfig_cache.resolve(&file_path, &config.serve_dir_abs);
+          let map_name = file_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
 
-          let result = transpile::typescript::transpile(transpile::TransformerContext {
-            content: contents,
-            path: file_path.clone(),
-            kind: ext,
-            tsconfig,
-          })?;
+          let code = format!("{}\n//# sourceMappingURL={}.map\n", result.code, map_name);
 
           logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
@@ -426,7 +443,7 @@ async fn main_async() -> anyhow::Result<()> {
               res
                 .header("Content-Type", content_type)
                 .status(200)
-                .body_from(compress::brotli(result.code.as_bytes()))?,
+                .body_from(compress::brotli(code.as_bytes()))?,
             );
           }
 
@@ -434,7 +451,7 @@ async fn main_async() -> anyhow::Result<()> {
             res
               .header("Content-Type", content_type)
               .status(200)
-              .body_from(result.code)?,
+              .body_from(code)?,
           );
         }
 
@@ -546,6 +563,52 @@ async fn main_async() -> anyhow::Result<()> {
   .await?;
 
   Ok(())
+}
+
+async fn transpile_file(
+  config: &Config,
+  tsconfig_cache: &transpile::tsconfig::TsConfigCache,
+  file_path: &Path,
+  url_path: &str,
+  kind: &str,
+) -> anyhow::Result<transpile::TransformerResult> {
+  let content = tokio::fs::read(file_path).await?;
+
+  let tsconfig = tsconfig_cache.resolve(file_path, &config.serve_dir_abs);
+
+  transpile::typescript::transpile(transpile::TransformerContext {
+    content,
+    path: file_path.to_path_buf(),
+    source_url: format!("/{}", url_path),
+    kind: kind.to_string(),
+    tsconfig,
+  })
+}
+
+/// Resolve a `.map` request to the source map of the transpiled file it names.
+async fn transpile_source_map(
+  config: &Config,
+  tsconfig_cache: &transpile::tsconfig::TsConfigCache,
+  req_path: &str,
+) -> anyhow::Result<Option<String>> {
+  let Some(source_path) = req_path.strip_suffix(".map") else {
+    return Ok(None);
+  };
+
+  let file_path = config.serve_dir_abs.join(source_path);
+
+  let kind = file_path
+    .extension()
+    .and_then(|value| value.to_str())
+    .unwrap_or_default();
+
+  if !matches!(kind, "ts" | "tsx") || !file_path.is_file() {
+    return Ok(None);
+  }
+
+  let result = transpile_file(config, tsconfig_cache, &file_path, source_path, kind).await?;
+
+  Ok(Some(result.map))
 }
 
 fn main() -> anyhow::Result<()> {

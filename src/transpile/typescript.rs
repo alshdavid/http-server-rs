@@ -1,4 +1,5 @@
 use swc_core::common::comments::SingleThreadedComments;
+use swc_core::common::source_map::SourceMapGenConfig;
 use swc_core::common::sync::Lrc;
 use swc_core::common::FileName;
 use swc_core::common::Globals;
@@ -8,7 +9,9 @@ use swc_core::common::SourceMap;
 use swc_core::common::GLOBALS;
 use swc_core::ecma::ast::EsVersion;
 use swc_core::ecma::ast::Program;
-use swc_core::ecma::codegen::to_code_default;
+use swc_core::ecma::codegen::text_writer::JsWriter;
+use swc_core::ecma::codegen::Config as CodegenConfig;
+use swc_core::ecma::codegen::Emitter;
 use swc_core::ecma::parser::lexer::Lexer;
 use swc_core::ecma::parser::Parser;
 use swc_core::ecma::parser::StringInput;
@@ -121,6 +124,28 @@ fn parse(
   }
 }
 
+/// Source maps carry their sources because the URLs they belong to are served
+/// the transpiled output rather than the original.
+struct SourceMapConfig {
+  source_url: String,
+}
+
+impl SourceMapGenConfig for SourceMapConfig {
+  fn file_name_to_source(
+    &self,
+    _: &FileName,
+  ) -> String {
+    self.source_url.clone()
+  }
+
+  fn inline_sources_content(
+    &self,
+    _: &FileName,
+  ) -> bool {
+    true
+  }
+}
+
 pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
   let jsx_config = jsx_config_from_tsconfig(&ctx);
 
@@ -166,78 +191,105 @@ pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
   // their helpers instead.
   let external_helpers = program.is_module();
 
-  let code = GLOBALS.set(&globals, || {
-    HELPERS.set(&Helpers::new(external_helpers), || {
-      let unresolved_mark = Mark::new();
-      let top_level_mark = Mark::new();
+  let (code, map) = GLOBALS.set(&globals, || {
+    HELPERS.set(
+      &Helpers::new(external_helpers),
+      || -> anyhow::Result<(String, String)> {
+        let unresolved_mark = Mark::new();
+        let top_level_mark = Mark::new();
 
-      let mut program = program.apply(resolver(unresolved_mark, top_level_mark, true));
+        let mut program = program.apply(resolver(unresolved_mark, top_level_mark, true));
 
-      // Stage 3 decorators have to run before the types are stripped, they are
-      // free to read type information off the members they decorate.
-      program = program.apply(decorator_2022_03());
+        // Stage 3 decorators have to run before the types are stripped, they are
+        // free to read type information off the members they decorate.
+        program = program.apply(decorator_2022_03());
 
-      let ts_config = TsConfig {
-        // Output runs as-is in the browser, so class fields keep their native
-        // ([[Define]]) semantics rather than moving into the constructor.
-        native_class_properties: true,
-        ..TsConfig::default()
-      };
+        let ts_config = TsConfig {
+          // Output runs as-is in the browser, so class fields keep their native
+          // ([[Define]]) semantics rather than moving into the constructor.
+          native_class_properties: true,
+          ..TsConfig::default()
+        };
 
-      if is_tsx && !jsx_config.preserve {
-        program = program.apply(tsx_strip(
-          cm.clone(),
-          ts_config,
-          TsxConfig {
-            pragma: Some(
-              jsx_config
-                .pragma
-                .clone()
-                .unwrap_or_else(|| "React.createElement".to_string())
-                .into(),
-            ),
-            pragma_frag: Some(
-              jsx_config
-                .pragma_frag
-                .clone()
-                .unwrap_or_else(|| "React.Fragment".to_string())
-                .into(),
-            ),
+        if is_tsx && !jsx_config.preserve {
+          program = program.apply(tsx_strip(
+            cm.clone(),
+            ts_config,
+            TsxConfig {
+              pragma: Some(
+                jsx_config
+                  .pragma
+                  .clone()
+                  .unwrap_or_else(|| "React.createElement".to_string())
+                  .into(),
+              ),
+              pragma_frag: Some(
+                jsx_config
+                  .pragma_frag
+                  .clone()
+                  .unwrap_or_else(|| "React.Fragment".to_string())
+                  .into(),
+              ),
+            },
+            comments.clone(),
+            unresolved_mark,
+            top_level_mark,
+          ));
+
+          program = program.apply(react(
+            cm.clone(),
+            Some(comments.clone()),
+            ReactOptions {
+              runtime: Some(jsx_config.runtime.unwrap_or(Runtime::Classic)),
+              import_source: jsx_config.import_source.clone().map(|value| value.into()),
+              pragma: jsx_config.pragma.clone().map(|value| value.into()),
+              pragma_frag: jsx_config.pragma_frag.clone().map(|value| value.into()),
+              development: Some(jsx_config.development),
+              ..ReactOptions::default()
+            },
+            top_level_mark,
+            unresolved_mark,
+          ));
+        } else {
+          program = program.apply(typescript(ts_config, unresolved_mark, top_level_mark));
+        }
+
+        program = program.apply(inject_helpers(unresolved_mark));
+        program = program.apply(hygiene());
+        program = program.apply(fixer(Some(&comments)));
+
+        if external_helpers {
+          rewrite_imports(&mut program);
+        }
+
+        let mut code = Vec::new();
+        let mut mappings = Vec::new();
+
+        {
+          let mut emitter = Emitter {
+            cfg: CodegenConfig::default(),
+            cm: cm.clone(),
+            comments: Some(&comments),
+            wr: JsWriter::new(cm.clone(), "\n", &mut code, Some(&mut mappings)),
+          };
+
+          emitter.emit_program(&program)?;
+        }
+
+        let source_map = cm.build_source_map(
+          &mappings,
+          None,
+          SourceMapConfig {
+            source_url: ctx.source_url.clone(),
           },
-          comments.clone(),
-          unresolved_mark,
-          top_level_mark,
-        ));
+        );
+        let mut map = Vec::new();
+        source_map.to_writer(&mut map)?;
 
-        program = program.apply(react(
-          cm.clone(),
-          Some(comments.clone()),
-          ReactOptions {
-            runtime: Some(jsx_config.runtime.unwrap_or(Runtime::Classic)),
-            import_source: jsx_config.import_source.clone().map(|value| value.into()),
-            pragma: jsx_config.pragma.clone().map(|value| value.into()),
-            pragma_frag: jsx_config.pragma_frag.clone().map(|value| value.into()),
-            development: Some(jsx_config.development),
-            ..ReactOptions::default()
-          },
-          top_level_mark,
-          unresolved_mark,
-        ));
-      } else {
-        program = program.apply(typescript(ts_config, unresolved_mark, top_level_mark));
-      }
+        Ok((String::from_utf8(code)?, String::from_utf8(map)?))
+      },
+    )
+  })?;
 
-      program = program.apply(inject_helpers(unresolved_mark));
-      program = program.apply(hygiene());
-      program = program.apply(fixer(Some(&comments)));
-
-      if external_helpers {
-        rewrite_imports(&mut program);
-      }
-
-      to_code_default(cm.clone(), Some(&comments), &program)
-    })
-  });
-
-  Ok(TransformerResult { code })
+  Ok(TransformerResult { code, map })
 }

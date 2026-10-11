@@ -54,6 +54,7 @@ urlencoding = "2.1.3"
 base64 = "0.23.1"
 swc_core = { version = "82.0.0", features = [
   "common",
+  "common_sourcemap",
   "ecma_ast",
   "ecma_codegen",
   "ecma_helpers_inline",
