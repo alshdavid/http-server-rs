@@ -1,7 +1,0 @@
-{
-  // "rust-analyzer.rustfmt.overrideCommand": [
-  //   "just",
-  //   "fmt",
-  //   "--fix"
-  // ]
-}

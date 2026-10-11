@@ -31,6 +31,7 @@ jobs:
           if [ "$LAST_VERSION" = "" ]; then
             LAST_VERSION="0"
           fi
+          
           declare -i var="$LAST_VERSION"
           var=$var+1
           VERSION="0.0.$var"
@@ -175,7 +176,7 @@ jobs:
 
           gh release delete "$VERSION" --yes --cleanup-tag 2>/dev/null || true
           gh release create $VERSION --draft --notes "Automatically built binaries"
-          gh release edit $VERSION --title "🚀 Latest"
+          gh release edit "$VERSION" --title "v${VERSION}"
 
           cd artifacts
           ls -la
@@ -202,6 +203,15 @@ jobs:
           done
 
           gh release edit $VERSION --draft=false
+
+          payload="$(jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg version "$VERSION" \
+            '{repository: $repository, version: $version}')"
+
+          curl -fsS -X POST "${{ secrets.SENTINEL_CHANGELOG_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" || true
 
   publish_crates_io:
     name: "🔁 Publish: Crate"
