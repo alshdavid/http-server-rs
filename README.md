@@ -102,7 +102,7 @@ Options:
       --watch-dir <WATCH_DIR>
           Watch for changes [default: SERVE_DIR]
       --watch-debounce-delay <WATCH_DEBOUNCE_DELAY>
-          Debounce delay in milliseconds before watched changes trigger a reload [default: 1000]
+          Debounce delay in milliseconds before watched changes trigger a reload [default: 200]
       --no-watch-inject
           Don't automatically inject watch listener into html
       --upgrade
