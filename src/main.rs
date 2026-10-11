@@ -14,7 +14,7 @@ struct Command {
 enum Commands {
   #[clap(name = "serve")]
   Serve(cmd::serve::ServeCommand),
-  #[clap(name = "serve")]
+  #[clap(name = "update")]
   Update(cmd::update::UpdateCommand),
 }
 
