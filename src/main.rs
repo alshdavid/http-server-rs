@@ -304,6 +304,29 @@ async fn main_async() -> anyhow::Result<()> {
           return Ok(res);
         }
 
+        if let Some(file) = req_path.strip_prefix(".http-server-rs/swc/") {
+          let source = file
+            .strip_suffix(".js")
+            .and_then(transpile::helpers::module_source);
+
+          let Some(source) = source else {
+            logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
+            return Ok(res.status(404).body_from("Unknown helper")?);
+          };
+
+          logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+          return Ok(
+            res
+              .header(
+                "Content-Type",
+                format!("application/javascript; {}", c::DEFAULT_CHARSET_SUFFIX),
+              )
+              .status(200)
+              .body_from(source)?,
+          );
+        }
+
         // hyper handles preventing access to parent directories via "../../"
         // but this is an extra layer of protection
         if !file_path.normalize().starts_with(&config.serve_dir_abs) {

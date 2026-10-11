@@ -29,6 +29,7 @@ use swc_core::ecma::transforms::typescript::typescript;
 use swc_core::ecma::transforms::typescript::Config as TsConfig;
 use swc_core::ecma::transforms::typescript::TsxConfig;
 
+use super::helpers::rewrite_imports;
 use super::tsconfig::JsxMode;
 use super::TransformerContext;
 use super::TransformerResult;
@@ -161,10 +162,12 @@ pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
 
   let globals = Globals::default();
 
-  // Helpers (decorator runtime, etc.) are inlined into the response rather
-  // than imported from `@swc/helpers`, a browser cannot resolve those.
+  // Script programs cannot import the shared helpers module, so swc inlines
+  // their helpers instead.
+  let external_helpers = program.is_module();
+
   let code = GLOBALS.set(&globals, || {
-    HELPERS.set(&Helpers::new(false), || {
+    HELPERS.set(&Helpers::new(external_helpers), || {
       let unresolved_mark = Mark::new();
       let top_level_mark = Mark::new();
 
@@ -227,6 +230,10 @@ pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
       program = program.apply(inject_helpers(unresolved_mark));
       program = program.apply(hygiene());
       program = program.apply(fixer(Some(&comments)));
+
+      if external_helpers {
+        rewrite_imports(&mut program);
+      }
 
       to_code_default(cm.clone(), Some(&comments), &program)
     })

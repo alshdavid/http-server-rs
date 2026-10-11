@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub mod helpers;
 pub mod tsconfig;
 pub mod typescript;
 
