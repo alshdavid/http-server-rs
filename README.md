@@ -153,7 +153,7 @@ https://github.com/user-attachments/assets/3d1bc313-e898-42bb-8c8f-a8023c41ec35
 Notes;
 - Use builtin `import` syntax
 - Libraries are fetched from a CDN (like [esm.sh](https://esm.sh/#tsx)) or vendored locally (no `npm`)
-- [importmap](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap) is used to map ESM specifier (e.g. `import 'react'`)  
+- [importmap](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap) is used to map ESM specifiers (e.g. `import 'react'`)  
 - At the moment, Deno is used for type checking.
   - Unfortunately, [TypeScript does not support remote declaration file](https://github.com/microsoft/TypeScript/issues/28985). If you want to use tsc you need to install packages using `npm` and configure a `tsconfig.json`.
 - For performance sensitive applications, you'll still probably want to use a bundler for production - but who know, this might be good enough for most use cases
