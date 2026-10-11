@@ -21,6 +21,6 @@ pub struct TransformerContext {
   pub source_maps: bool,
   /// The extension of the file being processed
   pub kind: String,
-  /// The nearest `tsconfig.json` compiler options, if one was found
+  /// The nearest `tsconfig.json` or `deno.json` compiler options, if one was found
   pub tsconfig: tsconfig::TsConfig,
 }

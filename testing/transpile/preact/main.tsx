@@ -1,8 +1,3 @@
-/** @jsxRuntime classic */
-/** @jsx h */
-/** @jsxFrag Fragment */
-/** @jsxImportSource preact */
-
 import { h, render } from 'preact'
 import { App } from './app.tsx'
 

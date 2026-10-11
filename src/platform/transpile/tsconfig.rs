@@ -7,6 +7,8 @@ use std::sync::Mutex;
 use serde::Deserialize;
 use serde_json::Value;
 
+const CONFIG_FILE_NAMES: [&str; 2] = ["deno.json", "tsconfig.json"];
+
 /// The `jsx` compiler option values relevant to transpilation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JsxMode {
@@ -38,7 +40,8 @@ impl JsxMode {
 /// A resolution of the TypeScript compiler options that affect transpilation.
 ///
 /// Only a subset of `compilerOptions` is represented - the options that the
-/// swc transformer can act on.
+/// swc transformer can act on. The options are read from a `tsconfig.json` or
+/// a `deno.json`, which share the `compilerOptions` shape.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TsConfig {
   /// The `jsx` compiler option, if set.
@@ -54,7 +57,7 @@ pub struct TsConfig {
 }
 
 impl TsConfig {
-  /// The default options used when no `tsconfig.json` could be found.
+  /// The default options used when no config file could be found.
   pub fn defaults() -> Self {
     Self {
       jsx: None,
@@ -72,7 +75,10 @@ impl Default for TsConfig {
   }
 }
 
-/// The raw shape of a `tsconfig.json` file as it appears on disk.
+/// The raw shape of a config file as it appears on disk.
+///
+/// `tsconfig.json` and `deno.json` agree on the parts read here; the extra
+/// top-level keys a `deno.json` carries (`imports`, `tasks`, ...) are ignored.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawTsConfig {
@@ -110,9 +116,10 @@ impl CompilerOptions {
   }
 }
 
-/// Locate a tsconfig from this dir up to (inclusive) the `stop_dir` boundary.
+/// Locate a config from this dir up to (inclusive) the `stop_dir` boundary.
 ///
-/// Returns the path to the nearest `tsconfig.json`.
+/// Returns the path to the nearest `deno.json` or `tsconfig.json`. A
+/// `deno.json` is preferred when both sit in the same directory.
 pub fn find_nearest_tsconfig(
   file_path: &Path,
   stop_dir: &Path,
@@ -120,10 +127,12 @@ pub fn find_nearest_tsconfig(
   let mut current = file_path.parent()?;
 
   loop {
-    let candidate = current.join("tsconfig.json");
+    for name in CONFIG_FILE_NAMES {
+      let candidate = current.join(name);
 
-    if candidate.is_file() {
-      return Some(candidate);
+      if candidate.is_file() {
+        return Some(candidate);
+      }
     }
 
     // Stop after checking the serve dir so that configs outside of the
@@ -143,10 +152,10 @@ pub fn find_nearest_tsconfig(
   }
 }
 
-/// Read and resolve a tsconfig, following the `extends` chain.
+/// Read and resolve a config, following the `extends` chain.
 ///
 /// Missing files and invalid JSON are treated as "no config" (`None`) because
-/// a malformed tsconfig should not stop the server from serving files.
+/// a malformed config should not stop the server from serving files.
 pub fn load_tsconfig(path: &Path) -> Option<TsConfig> {
   let (options, signature) = load_chain(path, 0, &mut Vec::new())?;
 
@@ -220,20 +229,25 @@ fn extends_specifiers(value: &Value) -> Vec<String> {
 
 /// Resolve an `extends` specifier to a path on disk.
 ///
-/// Also supports `tsconfig.json` files that live inside a node package
-/// (e.g. `@tsconfig/node20/tsconfig.json`) by walking up the directory tree
-/// looking for a `node_modules` folder.
+/// A specifier without an extension is treated as a directory holding another
+/// config of the same kind (`tsconfig.json` next to a `tsconfig.json`,
+/// `deno.json` next to a `deno.json`). Also supports configs that live inside
+/// a node package (e.g. `@tsconfig/node20/tsconfig.json`) by walking up the
+/// directory tree looking for a `node_modules` folder.
 fn resolve_extends(
   config_path: &Path,
   specifier: &str,
 ) -> Option<PathBuf> {
   let base_dir = config_path.parent()?;
+  let config_file = config_path
+    .file_name()
+    .unwrap_or_else(|| "tsconfig.json".as_ref());
 
   let with_json = |value: PathBuf| -> PathBuf {
     if value.extension().is_some() {
       value
     } else {
-      value.join("tsconfig.json")
+      value.join(config_file)
     }
   };
 
@@ -271,9 +285,9 @@ fn signature_of(contents: &str) -> u64 {
   hasher.finish()
 }
 
-/// A process-wide cache of resolved tsconfigs keyed by source file path.
+/// A process-wide cache of resolved configs keyed by source file path.
 ///
-/// tsconfig resolution reads from disk, so caching avoids doing filesystem
+/// Config resolution reads from disk, so caching avoids doing filesystem
 /// work on every single request.
 #[derive(Debug, Default)]
 pub struct TsConfigCache {
@@ -282,7 +296,7 @@ pub struct TsConfigCache {
 
 #[derive(Debug, Clone)]
 struct CachedConfig {
-  tsconfig_path: Option<PathBuf>,
+  config_path: Option<PathBuf>,
   signature: u64,
   config: TsConfig,
 }
@@ -292,7 +306,7 @@ impl TsConfigCache {
     Self::default()
   }
 
-  /// Resolve the tsconfig for a file, using the cache when the underlying
+  /// Resolve the config for a file, using the cache when the underlying
   /// config files have not changed.
   pub fn resolve(
     &self,
@@ -312,8 +326,8 @@ impl TsConfigCache {
       }
     }
 
-    let tsconfig_path = find_nearest_tsconfig(file_path, stop_dir);
-    let config = match tsconfig_path.as_ref() {
+    let config_path = find_nearest_tsconfig(file_path, stop_dir);
+    let config = match config_path.as_ref() {
       Some(path) => load_tsconfig(path).unwrap_or_else(TsConfig::defaults),
       None => TsConfig::defaults(),
     };
@@ -322,7 +336,7 @@ impl TsConfigCache {
       entries.insert(
         key,
         CachedConfig {
-          tsconfig_path,
+          config_path,
           signature: config.signature,
           config: config.clone(),
         },
@@ -339,10 +353,14 @@ fn is_fresh(
   file_path: &Path,
   stop_dir: &Path,
 ) -> bool {
-  let Some(path) = cached.tsconfig_path.as_ref() else {
-    // A previous resolution found no config. Only trust the miss if there
-    // still is no config to be found.
-    return find_nearest_tsconfig(file_path, stop_dir).is_none();
+  // Re-run the lookup so that a config appearing, disappearing or taking
+  // priority over the cached one invalidates the entry.
+  if find_nearest_tsconfig(file_path, stop_dir) != cached.config_path {
+    return false;
+  }
+
+  let Some(path) = cached.config_path.as_ref() else {
+    return true;
   };
 
   let Ok(contents) = fs::read_to_string(path) else {
@@ -400,6 +418,127 @@ mod tests {
 
     let config = load_tsconfig(&found).unwrap();
     assert_eq!(config.jsx, Some(JsxMode::React));
+  }
+
+  #[test]
+  fn finds_nearest_deno_json_walking_up() {
+    let dir = temp_dir("deno-nearest");
+    let nested = dir.join("a/b/c");
+    fs::create_dir_all(&nested).unwrap();
+
+    write(
+      &dir.join("a/deno.json"),
+      r#"{
+        "compilerOptions": {
+          "strict": true,
+          "lib": ["dom", "dom.iterable", "esnext"],
+          "jsx": "react",
+          "jsxFactory": "h",
+          "jsxFragmentFactory": "Fragment"
+        },
+        "imports": {
+          "preact": "https://esm.sh/preact@11"
+        }
+      }"#,
+    );
+
+    let file = nested.join("main.tsx");
+    write(&file, "export const a = 1;");
+
+    let found = find_nearest_tsconfig(&file, &dir).unwrap();
+    assert_eq!(found, dir.join("a/deno.json"));
+
+    let config = load_tsconfig(&found).unwrap();
+    assert_eq!(config.jsx, Some(JsxMode::React));
+    assert_eq!(config.jsx_factory.as_deref(), Some("h"));
+    assert_eq!(config.jsx_fragment_factory.as_deref(), Some("Fragment"));
+  }
+
+  #[test]
+  fn prefers_deno_json_over_tsconfig_in_same_dir() {
+    let dir = temp_dir("deno-priority");
+    write(
+      &dir.join("tsconfig.json"),
+      r#"{ "compilerOptions": { "jsx": "react-jsx" } }"#,
+    );
+    write(
+      &dir.join("deno.json"),
+      r#"{ "compilerOptions": { "jsx": "react", "jsxFactory": "h" } }"#,
+    );
+
+    let file = dir.join("main.tsx");
+    write(&file, "export const a = 1;");
+
+    let found = find_nearest_tsconfig(&file, &dir).unwrap();
+    assert_eq!(found, dir.join("deno.json"));
+    assert_eq!(load_tsconfig(&found).unwrap().jsx, Some(JsxMode::React));
+  }
+
+  #[test]
+  fn nearer_dir_wins_over_deno_json_priority() {
+    let dir = temp_dir("deno-distance");
+    let nested = dir.join("app");
+    fs::create_dir_all(&nested).unwrap();
+
+    write(
+      &dir.join("deno.json"),
+      r#"{ "compilerOptions": { "jsx": "react" } }"#,
+    );
+    write(
+      &nested.join("tsconfig.json"),
+      r#"{ "compilerOptions": { "jsx": "react-jsx" } }"#,
+    );
+
+    let file = nested.join("main.tsx");
+    write(&file, "export const a = 1;");
+
+    let found = find_nearest_tsconfig(&file, &dir).unwrap();
+    assert_eq!(found, nested.join("tsconfig.json"));
+    assert_eq!(load_tsconfig(&found).unwrap().jsx, Some(JsxMode::ReactJsx));
+  }
+
+  #[test]
+  fn resolves_deno_json_extends_chain() {
+    let dir = temp_dir("deno-extends");
+    write(
+      &dir.join("deno.base.json"),
+      r#"{ "compilerOptions": { "jsx": "react" } }"#,
+    );
+    write(
+      &dir.join("deno.json"),
+      r#"{ "extends": "./deno.base.json", "compilerOptions": { "jsxFactory": "h" } }"#,
+    );
+
+    let config = load_tsconfig(&dir.join("deno.json")).unwrap();
+    assert_eq!(config.jsx, Some(JsxMode::React));
+    assert_eq!(config.jsx_factory.as_deref(), Some("h"));
+  }
+
+  #[test]
+  fn cache_switches_to_deno_json_when_it_appears() {
+    let dir = temp_dir("deno-cache");
+    write(
+      &dir.join("tsconfig.json"),
+      r#"{ "compilerOptions": { "jsx": "react-jsx" } }"#,
+    );
+
+    let file = dir.join("main.tsx");
+    write(&file, "export const a = 1;");
+
+    let cache = TsConfigCache::new();
+    assert_eq!(cache.resolve(&file, &dir).jsx, Some(JsxMode::ReactJsx));
+
+    write(
+      &dir.join("deno.json"),
+      r#"{ "compilerOptions": { "jsx": "react" } }"#,
+    );
+    assert_eq!(cache.resolve(&file, &dir).jsx, Some(JsxMode::React));
+
+    write(
+      &dir.join("deno.json"),
+      r#"{ "compilerOptions": { "jsx": "react-jsx" } }"#,
+    );
+    assert_eq!(cache.resolve(&file, &dir).jsx, Some(JsxMode::ReactJsx));
   }
 
   #[test]
