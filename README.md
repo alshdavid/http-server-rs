@@ -58,7 +58,7 @@ http-server-rs serve --cors --spa -Z ./public
 # Responds with headers required for SharedArrayBuffer
 http-server-rs serve --shared-array-buffer ./public
 
-# Automatically transpiles TypeScript to JavaScript on request
+# Automatically transpiles TypeScript to JavaScript and Sass to CSS on request
 http-server-rs serve --transpile ./public
 
 # Proxy /api to an external backend (quotes are required)
@@ -132,9 +132,17 @@ Options:
           Print help
 ```
 
-## On-The-Fly TypeScript Transpilation
+## On-The-Fly Transpilation
 
-Write your application as if your browser natively supports TypeScript.
+Write your application as if your browser natively supports TypeScript and Sass.
+
+```bash
+http-server-rs serve --transpile .
+```
+
+https://github.com/user-attachments/assets/3d1bc313-e898-42bb-8c8f-a8023c41ec35
+
+### Typescript
 
 The server will on-the-fly transpile TypeScript to JavaScript on request. This allows serving TypeScript sources 
 directly to the browser without a build step.
@@ -146,8 +154,6 @@ http-server-rs serve --transpile --port 8080 ./testing/transpile/react
 curl http://localhost:8080/app.tsx 
 ```
 
-https://github.com/user-attachments/assets/3d1bc313-e898-42bb-8c8f-a8023c41ec35
-
 Notes;
 - Use builtin `import` syntax
 - Libraries are fetched from a CDN (like [esm.sh](https://esm.sh/#tsx)) or vendored locally (no `npm`)
@@ -155,6 +161,24 @@ Notes;
 - Deno is used for type checking
   - Unfortunately, [TypeScript does not support remote declaration files](https://github.com/microsoft/TypeScript/issues/28985). If you want to use tsc you need to install packages using `npm` and configure a `tsconfig.json`.
 - For performance sensitive applications, you'll still probably want to use a bundler for production - but who know, this might be good enough for most use cases
+
+### Sass
+
+Requests for `.scss` and `.sass` files are compiled to CSS and served with the `text/css` content type. 
+
+Imports (`@use` / `@import`) are resolved on the fly, including partials, so a stylesheet can be linked directly from the page.
+
+```bash
+http-server-rs serve --transpile --port 8080 ./public
+
+# Link the source file - the browser receives CSS
+# <link rel="stylesheet" href="/style.scss">
+curl http://localhost:8080/style.scss
+```
+
+Notes;
+- A file is served at its own path, so the page links `style.scss` rather than a `.css` twin
+- Imports are restricted to the served directory
 
 ## Watch Mode
 
