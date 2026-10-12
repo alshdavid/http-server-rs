@@ -13,13 +13,13 @@ struct Command {
 #[derive(Debug, Subcommand)]
 enum Commands {
   /// Serve a target directory over HTTP
-  #[clap(name = "serve")]
+  #[clap(name = "serve", visible_aliases = ["s"])]
   Serve(cmd::serve::ServeCommand),
   /// Generate a template project
   #[clap(name = "generate", visible_aliases = ["gen", "g"])]
   Generate(cmd::generate::GenerateCommand),
   /// Update the binary to the latest release
-  #[clap(name = "update")]
+  #[clap(name = "update", visible_aliases = ["up", "u"])]
   Update(cmd::update::UpdateCommand),
 }
 

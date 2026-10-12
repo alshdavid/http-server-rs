@@ -25,11 +25,11 @@ impl Template {
 #[derive(Debug, Parser)]
 pub struct GenerateCommand {
   /// Template project to create
-  #[arg(long = "template", value_enum)]
+  #[arg(long = "template", short = 't', value_enum)]
   pub template: Template,
 
   /// Directory to write the generated project to
-  #[arg(long = "out-dir", default_value = "./template")]
+  #[arg(long = "out-dir", short = 'o', default_value = "./template")]
   pub out_dir: PathBuf,
 }
 
