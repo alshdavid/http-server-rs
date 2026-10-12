@@ -5,7 +5,7 @@ use include_dir::include_dir;
 use include_dir::Dir;
 
 static TEMPLATE: Dir<'_> =
-  include_dir!("$CARGO_MANIFEST_DIR/src/cmd/generate/templates/preact/template");
+  include_dir!("$CARGO_MANIFEST_DIR/src/cmd/generate/templates/preact_rx/template");
 
 pub fn generate(target: &Path) -> std::io::Result<()> {
   fs::create_dir_all(target)?;
