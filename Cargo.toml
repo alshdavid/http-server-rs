@@ -78,6 +78,7 @@ swc_core = { version = "82.0.2", features = [
   "ecma_transforms_typescript",
 ] }
 include_dir = "0.7.4"
+grass = { version = "0.13", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 unix_mode = "0.1.4"

@@ -1,0 +1,9 @@
+@use 'partials/theme';
+
+body {
+  background: theme.$background;
+
+  .title {
+    color: theme.$foreground;
+  }
+}

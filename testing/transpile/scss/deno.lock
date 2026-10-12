@@ -1,0 +1,9 @@
+{
+  "version": "5",
+  "redirects": {
+    "https://esm.sh/preact@11": "https://esm.sh/preact@11.0.1"
+  },
+  "remote": {
+    "https://esm.sh/preact@11.0.1": "cf9eac4936d312572768253285dc852fa332d7b2ab92985e87a59d0b620b5789"
+  }
+}

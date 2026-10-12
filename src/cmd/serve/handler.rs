@@ -32,6 +32,7 @@ use crate::platform::proxy::match_proxy_route;
 use crate::platform::proxy::proxy_request;
 use crate::platform::proxy::ProxyClient;
 use crate::platform::transpile;
+use crate::platform::transpile::tsconfig;
 use crate::platform::transpile::tsconfig::TsConfigCache;
 use crate::platform::watcher::Watcher;
 
@@ -303,6 +304,31 @@ pub async fn handle(
     .unwrap_or_default()
     .to_string();
 
+  if config.transpile && (ext == "scss" || ext == "sass") {
+    let css = transpile_stylesheet(&config, &req_path, &file_path).await?;
+
+    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+
+    let content_type = format!("text/css; {}", DEFAULT_CHARSET_SUFFIX);
+
+    if config.compress {
+      res = res.header("Content-Encoding", "br");
+      return Ok(
+        res
+          .header("Content-Type", content_type)
+          .status(200)
+          .body_from(compress::brotli(css.as_bytes()))?,
+      );
+    }
+
+    return Ok(
+      res
+        .header("Content-Type", content_type)
+        .status(200)
+        .body_from(css)?,
+    );
+  }
+
   if config.transpile && (ext == "ts" || ext == "tsx") {
     let result = transpile_file(&config, &tsconfig_cache, &file_path, &req_path, &ext).await?;
 
@@ -459,8 +485,54 @@ async fn transpile_file(
     source_url: format!("/{}", url_path),
     source_maps: config.source_maps,
     kind: kind.to_string(),
+    root_dir: config.serve_dir_abs.clone(),
     tsconfig,
   })
+}
+
+/// Compile a scss file to css.
+async fn transpile_stylesheet(
+  config: &Config,
+  req_path: &str,
+  file_path: &Path,
+) -> anyhow::Result<String> {
+  let content = tokio::fs::read(file_path).await?;
+
+  let result = transpile::scss::transpile(transpile::TransformerContext {
+    content,
+    path: file_path.to_path_buf(),
+    source_url: format!("/{}", req_path),
+    source_maps: false,
+    kind: "scss".to_string(),
+    root_dir: config.serve_dir_abs.clone(),
+    tsconfig: tsconfig::TsConfig::defaults(),
+  })?;
+
+  // The browser only knows the `.css` URL, so any import that names a
+  // stylesheet without its extension has to be rewritten to one it can
+  // request from this server.
+  let candidates = transpile::scss::candidates(&result.code, file_path, &config.serve_dir_abs);
+
+  let mut code = result.code;
+
+  for (specifier, replacement) in candidates {
+    let rewrites = if specifier.contains('\'') {
+      vec![(format!("\"{specifier}\""), format!("\"{replacement}\""))]
+    } else if specifier.contains('"') {
+      vec![(format!("'{specifier}'"), format!("'{replacement}'"))]
+    } else {
+      vec![
+        (format!("\"{specifier}\""), format!("\"{replacement}\"")),
+        (format!("'{specifier}'"), format!("'{replacement}'")),
+      ]
+    };
+
+    for (target, value) in rewrites {
+      code = code.replace(&target, &value);
+    }
+  }
+
+  Ok(code)
 }
 
 /// Resolve a `.map` request to the source map of the transpiled file it names.

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 pub mod helpers;
+pub mod scss;
 pub mod tsconfig;
 pub mod typescript;
 
@@ -21,6 +22,14 @@ pub struct TransformerContext {
   pub source_maps: bool,
   /// The extension of the file being processed
   pub kind: String,
+  /// The directory being served, the boundary imports may not cross
+  pub root_dir: PathBuf,
   /// The nearest `tsconfig.json` or `deno.json` compiler options, if one was found
   pub tsconfig: tsconfig::TsConfig,
+}
+
+impl TransformerContext {
+  pub fn kind(&self) -> &str {
+    self.kind.as_str()
+  }
 }
