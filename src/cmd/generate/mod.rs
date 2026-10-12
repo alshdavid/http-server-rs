@@ -7,6 +7,7 @@ use clap::ValueEnum;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum Template {
+  PreactRx,
   Preact,
   React,
   Vanilla,
@@ -15,6 +16,7 @@ pub enum Template {
 impl Template {
   fn name(&self) -> &'static str {
     match self {
+      Template::PreactRx => "preact-rx",
       Template::Preact => "preact",
       Template::React => "react",
       Template::Vanilla => "vanilla",
@@ -42,6 +44,7 @@ pub async fn main(args: GenerateCommand) -> anyhow::Result<()> {
   }
 
   match args.template {
+    Template::PreactRx => templates::preact_rx::generate(&args.out_dir)?,
     Template::Preact => templates::preact::generate(&args.out_dir)?,
     Template::React => templates::react::generate(&args.out_dir)?,
     Template::Vanilla => templates::vanilla::generate(&args.out_dir)?,
