@@ -28,10 +28,12 @@ jobs:
         run: |
           set -ex
           LAST_VERSION=$(curl -sSL https://api.github.com/repos/alshdavid/$PROJECT_NAME/releases/latest | jq -r ".tag_name" | cut -d "." -f 3)
-          # Commenting out to protect against overriding on error
-          # if [ "$LAST_VERSION" = "" ]; then
-          #   LAST_VERSION="0"
-          # fi
+          if [ "$LAST_VERSION" = "" ]; then
+            # Commenting out to protect against overriding on error
+            # LAST_VERSION="0"
+            echo "Version Missing"
+            exit 1
+          fi
           
           declare -i var="$LAST_VERSION"
           var=$var+1
