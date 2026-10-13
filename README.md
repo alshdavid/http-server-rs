@@ -2,7 +2,7 @@
 
 Rewrite of the popular npm package [http-server](https://github.com/http-party/http-server/tree/master) in Rust with some extras included.
 
-`http-server` is a simple, zero-configuration command-line static HTTP server. It is powerful enough for production usage, but it's simple and hackable enough to be used for testing, local development and learning.
+`http-server` is a simple, zero-configuration command-line static HTTP server. Use it to serve static assets or as a development too that just-in-time transpiles sources, allowing you to write your web application as though your browser supports TypeScript and Sass.
 
 https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
 
