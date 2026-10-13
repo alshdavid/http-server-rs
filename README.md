@@ -1,6 +1,8 @@
 # http-server-rs: a simple static HTTP server 🚀🦀
 
-`http-server-rs` is a simple, zero-configuration command-line static HTTP server. Use it to serve static assets or as a development too that just-in-time transpiles sources, allowing you to write your web application as though your browser supports TypeScript and Sass.
+`http-server-rs` is a simple, zero-configuration command-line static HTTP server. 
+
+Use it to serve static assets or as a development too that just-in-time transpiles sources, allowing you to write your web application as though your browser supports TypeScript and Sass.
 
 https://github.com/user-attachments/assets/7b6bbee0-3428-4c9f-80a6-2804ddac6e01
 
