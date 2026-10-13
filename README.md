@@ -31,7 +31,7 @@ export HTTP_SERVER_RS_BIN_OVERRIDE=/path/to/http-server-rs
 npx http-server-rs --help # Uses the override
 ```
 
-### Manual Install
+### Manual Install (Reccomended)
 
 Download the latest binary from [GitHub Releases](https://github.com/alshdavid-public/http-server-rs/releases/latest) and add it to your `PATH`.
 
