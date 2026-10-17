@@ -4,13 +4,13 @@ use std::thread;
 use std::time::Duration;
 
 use colored::Colorize;
+use notify_debouncer_full::DebounceEventResult;
+use notify_debouncer_full::Debouncer;
+use notify_debouncer_full::RecommendedCache;
 use notify_debouncer_full::new_debouncer;
 use notify_debouncer_full::notify::EventKind;
 use notify_debouncer_full::notify::RecommendedWatcher;
 use notify_debouncer_full::notify::RecursiveMode;
-use notify_debouncer_full::DebounceEventResult;
-use notify_debouncer_full::Debouncer;
-use notify_debouncer_full::RecommendedCache;
 use tokio::sync::watch;
 
 use crate::platform::logger::Logger;

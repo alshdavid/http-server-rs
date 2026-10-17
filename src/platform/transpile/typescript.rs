@@ -1,41 +1,41 @@
-use swc_core::common::comments::SingleThreadedComments;
-use swc_core::common::source_map::SourceMapGenConfig;
-use swc_core::common::sync::Lrc;
 use swc_core::common::FileName;
+use swc_core::common::GLOBALS;
 use swc_core::common::Globals;
 use swc_core::common::Mark;
 use swc_core::common::SourceFile;
 use swc_core::common::SourceMap;
-use swc_core::common::GLOBALS;
+use swc_core::common::comments::SingleThreadedComments;
+use swc_core::common::source_map::SourceMapGenConfig;
+use swc_core::common::sync::Lrc;
 use swc_core::ecma::ast::EsVersion;
 use swc_core::ecma::ast::Program;
-use swc_core::ecma::codegen::text_writer::JsWriter;
 use swc_core::ecma::codegen::Config as CodegenConfig;
 use swc_core::ecma::codegen::Emitter;
-use swc_core::ecma::parser::lexer::Lexer;
+use swc_core::ecma::codegen::text_writer::JsWriter;
 use swc_core::ecma::parser::Parser;
 use swc_core::ecma::parser::StringInput;
 use swc_core::ecma::parser::Syntax;
 use swc_core::ecma::parser::TsSyntax;
+use swc_core::ecma::parser::lexer::Lexer;
 use swc_core::ecma::transforms::base::fixer::fixer;
-use swc_core::ecma::transforms::base::helpers::inject_helpers;
-use swc_core::ecma::transforms::base::helpers::Helpers;
 use swc_core::ecma::transforms::base::helpers::HELPERS;
+use swc_core::ecma::transforms::base::helpers::Helpers;
+use swc_core::ecma::transforms::base::helpers::inject_helpers;
 use swc_core::ecma::transforms::base::hygiene::hygiene;
 use swc_core::ecma::transforms::base::resolver;
 use swc_core::ecma::transforms::proposal::decorator_2022_03::decorator_2022_03;
-use swc_core::ecma::transforms::react::react;
 use swc_core::ecma::transforms::react::Options as ReactOptions;
 use swc_core::ecma::transforms::react::Runtime;
-use swc_core::ecma::transforms::typescript::tsx as tsx_strip;
-use swc_core::ecma::transforms::typescript::typescript;
+use swc_core::ecma::transforms::react::react;
 use swc_core::ecma::transforms::typescript::Config as TsConfig;
 use swc_core::ecma::transforms::typescript::TsxConfig;
+use swc_core::ecma::transforms::typescript::tsx as tsx_strip;
+use swc_core::ecma::transforms::typescript::typescript;
 
-use super::helpers::rewrite_imports;
-use super::tsconfig::JsxMode;
 use super::TransformerContext;
 use super::TransformerResult;
+use super::helpers::rewrite_imports;
+use super::tsconfig::JsxMode;
 
 /// Options picked from the tsconfig used to drive the transform.
 #[derive(Debug, Clone, Default)]

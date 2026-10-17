@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::env;
-use std::path::PathBuf;
 use std::path::MAIN_SEPARATOR_STR;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use normalize_path::NormalizePath;
 use pathdiff::diff_paths;
 
 use super::ServeCommand;
-use crate::platform::proxy::parse_proxy_config;
 use crate::platform::proxy::ProxyConfig;
+use crate::platform::proxy::parse_proxy_config;
 
 #[derive(Debug)]
 pub struct Config {

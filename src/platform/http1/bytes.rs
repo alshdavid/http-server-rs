@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::convert::Infallible;
 
-use http_body_util::combinators::BoxBody;
 use http_body_util::Full;
+use http_body_util::combinators::BoxBody;
 use hyper::body::Bytes as HyperBytes;
 
 pub struct Bytes(Vec<u8>);

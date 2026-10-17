@@ -128,10 +128,9 @@ pub fn candidates(
       .strip_prefix(root_dir)
       .ok()
       .map(|path| path.to_string_lossy().replace('\\', "/"))
+      && url_path != specifier
     {
-      if url_path != specifier {
-        candidates.push((specifier.clone(), format!("/{}", url_path)));
-      }
+      candidates.push((specifier.clone(), format!("/{}", url_path)));
     }
   }
 
@@ -286,16 +285,18 @@ mod tests {
     write(&entry, "@use '../secret';\n");
     write(&dir.join("_secret.scss"), "$color: red;\n");
 
-    assert!(transpile(TransformerContext {
-      content: b"".to_vec(),
-      path: entry,
-      source_url: "/main.scss".to_string(),
-      source_maps: false,
-      kind: "scss".to_string(),
-      root_dir: serve_dir,
-      tsconfig: Default::default(),
-    })
-    .is_err());
+    assert!(
+      transpile(TransformerContext {
+        content: b"".to_vec(),
+        path: entry,
+        source_url: "/main.scss".to_string(),
+        source_maps: false,
+        kind: "scss".to_string(),
+        root_dir: serve_dir,
+        tsconfig: Default::default(),
+      })
+      .is_err()
+    );
   }
 
   #[test]
