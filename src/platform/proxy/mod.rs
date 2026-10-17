@@ -2,14 +2,14 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
 
-use http_body_util::combinators::BoxBody;
 use http_body_util::BodyExt;
-use hyper::body::Bytes as HyperBytes;
-use hyper::body::Incoming;
+use http_body_util::combinators::BoxBody;
 use hyper::Request;
 use hyper::Response;
-use hyper_util::client::legacy::connect::HttpConnector;
+use hyper::body::Bytes as HyperBytes;
+use hyper::body::Incoming;
 use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::TokioExecutor;
 use serde::Deserialize;
 
@@ -82,7 +82,7 @@ pub async fn proxy_request(
   for (key, value) in headers.iter() {
     match key.as_str() {
       "connection" | "keep-alive" | "transfer-encoding" | "upgrade" | "proxy-connection" => {
-        continue
+        continue;
       }
       _ => {}
     }
@@ -297,11 +297,11 @@ fn build_target_uri(
 
   let mut uri = format!("{}{}", target, path);
 
-  if let Some(query) = query {
-    if !query.is_empty() {
-      uri.push('?');
-      uri.push_str(query);
-    }
+  if let Some(query) = query
+    && !query.is_empty()
+  {
+    uri.push('?');
+    uri.push_str(query);
   }
 
   uri

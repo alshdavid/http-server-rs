@@ -196,10 +196,10 @@ fn load_chain(
   // The `extends` chain is resolved first so that child options win
   if let Some(extends) = raw.extends.as_ref() {
     for specifier in extends_specifiers(extends) {
-      if let Some(extended_path) = resolve_extends(path, &specifier) {
-        if let Some((parent_options, _)) = load_chain(&extended_path, depth + 1, visited) {
-          options.extend(parent_options);
-        }
+      if let Some(extended_path) = resolve_extends(path, &specifier)
+        && let Some((parent_options, _)) = load_chain(&extended_path, depth + 1, visited)
+      {
+        options.extend(parent_options);
       }
     }
   }
@@ -317,12 +317,11 @@ impl TsConfigCache {
 
     {
       let entries = self.entries.lock().ok();
-      if let Some(entries) = entries.as_ref() {
-        if let Some(cached) = entries.get(&key) {
-          if is_fresh(cached, file_path, stop_dir) {
-            return cached.config.clone();
-          }
-        }
+      if let Some(entries) = entries.as_ref()
+        && let Some(cached) = entries.get(&key)
+        && is_fresh(cached, file_path, stop_dir)
+      {
+        return cached.config.clone();
       }
     }
 

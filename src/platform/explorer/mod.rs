@@ -102,12 +102,12 @@ pub fn render_directory_explorer(
   }
 
   let mut parent = None::<String>;
-  if let Some(up_one) = dir_path.parent() {
-    if dir_path != config.serve_dir_abs.normalize() {
-      let diff = pathdiff::diff_paths(up_one, &config.serve_dir_abs).unwrap();
-      let diff_str = diff.to_str().unwrap();
-      parent = Some(format!("/{}", diff_str));
-    }
+  if let Some(up_one) = dir_path.parent()
+    && dir_path != config.serve_dir_abs.normalize()
+  {
+    let diff = pathdiff::diff_paths(up_one, &config.serve_dir_abs).unwrap();
+    let diff_str = diff.to_str().unwrap();
+    parent = Some(format!("/{}", diff_str));
   }
 
   folders.sort_by_key(|a| a.3.to_lowercase());

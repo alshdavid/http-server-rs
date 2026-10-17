@@ -9,11 +9,11 @@ use std::sync::Arc;
 
 use colored::Colorize;
 use http_body_util::combinators::BoxBody;
+use hyper::Request;
+use hyper::Response;
 use hyper::body::Bytes as HyperBytes;
 use hyper::body::Incoming;
 use hyper::http::response::Builder as ResponseBuilder;
-use hyper::Request;
-use hyper::Response;
 use normalize_path::NormalizePath;
 use tokio::fs::File;
 use tokio::io;
@@ -23,14 +23,14 @@ use super::config::Config;
 use super::constants::DEFAULT_CHARSET_SUFFIX;
 use crate::platform::b64;
 use crate::platform::compress;
+use crate::platform::explorer::RenderDirectoryExplorerConfig;
 use crate::platform::explorer::reload_script;
 use crate::platform::explorer::render_directory_explorer;
-use crate::platform::explorer::RenderDirectoryExplorerConfig;
 use crate::platform::http1::ResponseBuilderExt;
 use crate::platform::logger::Logger;
+use crate::platform::proxy::ProxyClient;
 use crate::platform::proxy::match_proxy_route;
 use crate::platform::proxy::proxy_request;
-use crate::platform::proxy::ProxyClient;
 use crate::platform::transpile;
 use crate::platform::transpile::tsconfig;
 use crate::platform::transpile::tsconfig::TsConfigCache;
@@ -210,20 +210,21 @@ pub async fn handle(
   }
 
   // Source maps are requested as the `.map` sibling of a transpiled file
-  if config.transpile && config.source_maps {
-    if let Some(map) = transpile_source_map(&config, &tsconfig_cache, &req_path).await? {
-      logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
+  if config.transpile
+    && config.source_maps
+    && let Some(map) = transpile_source_map(&config, &tsconfig_cache, &req_path).await?
+  {
+    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
-      return Ok(
-        res
-          .header(
-            "Content-Type",
-            format!("application/json; {}", DEFAULT_CHARSET_SUFFIX),
-          )
-          .status(200)
-          .body_from(map)?,
-      );
-    }
+    return Ok(
+      res
+        .header(
+          "Content-Type",
+          format!("application/json; {}", DEFAULT_CHARSET_SUFFIX),
+        )
+        .status(200)
+        .body_from(map)?,
+    );
   }
 
   // Redirect directory requests to a trailing slash so that relative

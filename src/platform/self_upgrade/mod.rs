@@ -2,8 +2,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
-use self_update::backends::github;
 use self_update::ReleaseAsset;
+use self_update::backends::github;
 
 const BIN_NAME: &str = "http-server-rs";
 

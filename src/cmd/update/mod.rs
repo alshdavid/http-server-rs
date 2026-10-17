@@ -1,7 +1,7 @@
 use crate::platform::self_upgrade;
+use crate::platform::self_upgrade::TARGET_REPO;
 use crate::platform::self_upgrade::UpgradeOptions;
 use crate::platform::self_upgrade::UpgradeOutcome;
-use crate::platform::self_upgrade::TARGET_REPO;
 
 #[derive(Debug, clap::Parser)]
 pub struct UpdateCommand {}
