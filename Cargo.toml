@@ -32,7 +32,6 @@ hyper-util = { version = "0.1.21", features = [
 mime_guess = "2.0.5"
 normalize-path = "0.2.2"
 notify-debouncer-full = "0.7.0"
-num_cpus = "1.17.0"
 pathdiff = "0.2.3"
 regex = "1.13.1"
 self_update = { version = "1.3", default-features = false, features = [
