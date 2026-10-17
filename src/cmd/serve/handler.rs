@@ -117,6 +117,11 @@ pub async fn handle(
     return Ok(response);
   }
 
+  let accept_encoding = req
+    .headers()
+    .get("accept-encoding")
+    .and_then(|value| value.to_str().ok());
+
   // Remove the leading slash
   let req_path = req.uri().path().to_string().replacen("/", "", 1);
   let req_path = urlencoding::decode(&req_path)?.to_string();
@@ -313,13 +318,19 @@ pub async fn handle(
     let content_type = format!("text/css; {}", DEFAULT_CHARSET_SUFFIX);
 
     if config.compress {
-      res = res.header("Content-Encoding", "br");
-      return Ok(
-        res
-          .header("Content-Type", content_type)
-          .status(200)
-          .body_from(compress::brotli(css.as_bytes()))?,
-      );
+      res = res.header("Vary", "Accept-Encoding");
+
+      if compress::negotiate_encoding(accept_encoding, &[compress::Encoding::Brotli])
+        == compress::Encoding::Brotli
+      {
+        return Ok(
+          res
+            .header("Content-Encoding", "br")
+            .header("Content-Type", content_type)
+            .status(200)
+            .body_from(compress::brotli(css.as_bytes()))?,
+        );
+      }
     }
 
     return Ok(
@@ -348,13 +359,19 @@ pub async fn handle(
     let content_type = format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX);
 
     if config.compress {
-      res = res.header("Content-Encoding", "br");
-      return Ok(
-        res
-          .header("Content-Type", content_type)
-          .status(200)
-          .body_from(compress::brotli(code.as_bytes()))?,
-      );
+      res = res.header("Vary", "Accept-Encoding");
+
+      if compress::negotiate_encoding(accept_encoding, &[compress::Encoding::Brotli])
+        == compress::Encoding::Brotli
+      {
+        return Ok(
+          res
+            .header("Content-Encoding", "br")
+            .header("Content-Type", content_type)
+            .status(200)
+            .body_from(compress::brotli(code.as_bytes()))?,
+        );
+      }
     }
 
     return Ok(
@@ -389,12 +406,30 @@ pub async fn handle(
     let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
     let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
 
+    let mut available = Vec::new();
+
     if brotli_path.exists() {
-      file_path = brotli_path;
-      res = res.header("Content-Encoding", "br");
-    } else if gzip_path.exists() {
-      file_path = gzip_path;
-      res = res.header("Content-Encoding", "gzip");
+      available.push(compress::Encoding::Brotli);
+    }
+
+    if gzip_path.exists() {
+      available.push(compress::Encoding::Gzip);
+    }
+
+    if !available.is_empty() {
+      res = res.header("Vary", "Accept-Encoding");
+
+      match compress::negotiate_encoding(accept_encoding, &available) {
+        compress::Encoding::Brotli => {
+          file_path = brotli_path;
+          res = res.header("Content-Encoding", "br");
+        }
+        compress::Encoding::Gzip => {
+          file_path = gzip_path;
+          res = res.header("Content-Encoding", "gzip");
+        }
+        compress::Encoding::Identity => {}
+      }
     }
   }
 
@@ -462,11 +497,21 @@ pub async fn handle(
   }
 
   if config.compress {
-    res = res.header("Content-Encoding", "br");
-    Ok(res.status(200).body_from(compress::brotli(&contents))?)
-  } else {
-    Ok(res.status(200).body_from(contents)?)
+    res = res.header("Vary", "Accept-Encoding");
+
+    if compress::negotiate_encoding(accept_encoding, &[compress::Encoding::Brotli])
+      == compress::Encoding::Brotli
+    {
+      return Ok(
+        res
+          .header("Content-Encoding", "br")
+          .status(200)
+          .body_from(compress::brotli(&contents))?,
+      );
+    }
   }
+
+  Ok(res.status(200).body_from(contents)?)
 }
 
 async fn transpile_file(
