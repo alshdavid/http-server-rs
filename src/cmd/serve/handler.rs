@@ -3,7 +3,6 @@ use std::convert::Infallible;
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -31,9 +30,8 @@ use crate::platform::logger::Logger;
 use crate::platform::proxy::ProxyClient;
 use crate::platform::proxy::match_proxy_route;
 use crate::platform::proxy::proxy_request;
-use crate::platform::transpile;
-use crate::platform::transpile::tsconfig;
-use crate::platform::transpile::tsconfig::TsConfigCache;
+use crate::platform::transpile::scss::ScssTransformer;
+use crate::platform::transpile::typescript::TypeScriptTransformer;
 use crate::platform::watcher::Watcher;
 
 pub struct ServeState {
@@ -41,7 +39,8 @@ pub struct ServeState {
   pub logger: Arc<Logger>,
   pub watcher: Option<Watcher>,
   pub proxy_client: Option<Arc<ProxyClient>>,
-  pub tsconfig_cache: Arc<TsConfigCache>,
+  pub scss_transformer: Arc<ScssTransformer>,
+  pub typescript_transformer: Arc<TypeScriptTransformer>,
 }
 
 pub async fn handle(
@@ -53,7 +52,8 @@ pub async fn handle(
   let logger = state.logger.clone();
   let watcher = state.watcher.clone();
   let proxy_client = state.proxy_client.clone();
-  let tsconfig_cache = state.tsconfig_cache.clone();
+  let scss_transformer = state.scss_transformer.clone();
+  let typescript_transformer = state.typescript_transformer.clone();
 
   // Basic Auth
   if !config.basic_auth.is_empty() {
@@ -179,16 +179,10 @@ pub async fn handle(
     return Ok(res);
   }
 
-  if let Some(file) = req_path.strip_prefix(".http-server-rs/swc/") {
-    let source = file
-      .strip_suffix(".js")
-      .and_then(transpile::helpers::module_source);
-
-    let Some(source) = source else {
-      logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
-      return Ok(res.status(404).body_from("Unknown helper")?);
-    };
-
+  if config.transpile
+    && let Some(name) = TypeScriptTransformer::helper_module_name(req.uri().path())
+    && let Some(source) = TypeScriptTransformer::helper_module_source(name)
+  {
     logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
     return Ok(
@@ -212,7 +206,7 @@ pub async fn handle(
   // Source maps are requested as the `.map` sibling of a transpiled file
   if config.transpile
     && config.source_maps
-    && let Some(map) = transpile_source_map(&config, &tsconfig_cache, &req_path).await?
+    && let Some(map) = transpile_source_map(&config, &typescript_transformer, &req_path).await?
   {
     logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
@@ -306,7 +300,7 @@ pub async fn handle(
     .to_string();
 
   if config.transpile && (ext == "scss" || ext == "sass") {
-    let css = transpile_stylesheet(&config, &req_path, &file_path).await?;
+    let css = scss_transformer.transpile(&file_path, &ext).await?;
 
     logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
@@ -331,7 +325,18 @@ pub async fn handle(
   }
 
   if config.transpile && (ext == "ts" || ext == "tsx") {
-    let result = transpile_file(&config, &tsconfig_cache, &file_path, &req_path, &ext).await?;
+    let Some(result) = typescript_transformer
+      .transpile(
+        &file_path,
+        &format!("/{}", req_path),
+        &ext,
+        config.source_maps,
+      )
+      .await?
+    else {
+      logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
+      return Ok(res.status(404).body_from("File not found")?);
+    };
 
     let map_name = file_path
       .file_name()
@@ -469,77 +474,10 @@ pub async fn handle(
   }
 }
 
-async fn transpile_file(
-  config: &Config,
-  tsconfig_cache: &TsConfigCache,
-  file_path: &Path,
-  url_path: &str,
-  kind: &str,
-) -> anyhow::Result<transpile::TransformerResult> {
-  let content = tokio::fs::read(file_path).await?;
-
-  let tsconfig = tsconfig_cache.resolve(file_path, &config.serve_dir_abs);
-
-  transpile::typescript::transpile(transpile::TransformerContext {
-    content,
-    path: file_path.to_path_buf(),
-    source_url: format!("/{}", url_path),
-    source_maps: config.source_maps,
-    kind: kind.to_string(),
-    root_dir: config.serve_dir_abs.clone(),
-    tsconfig,
-  })
-}
-
-/// Compile a scss file to css.
-async fn transpile_stylesheet(
-  config: &Config,
-  req_path: &str,
-  file_path: &Path,
-) -> anyhow::Result<String> {
-  let content = tokio::fs::read(file_path).await?;
-
-  let result = transpile::scss::transpile(transpile::TransformerContext {
-    content,
-    path: file_path.to_path_buf(),
-    source_url: format!("/{}", req_path),
-    source_maps: false,
-    kind: "scss".to_string(),
-    root_dir: config.serve_dir_abs.clone(),
-    tsconfig: tsconfig::TsConfig::defaults(),
-  })?;
-
-  // The browser only knows the `.css` URL, so any import that names a
-  // stylesheet without its extension has to be rewritten to one it can
-  // request from this server.
-  let candidates = transpile::scss::candidates(&result.code, file_path, &config.serve_dir_abs);
-
-  let mut code = result.code;
-
-  for (specifier, replacement) in candidates {
-    let rewrites = if specifier.contains('\'') {
-      vec![(format!("\"{specifier}\""), format!("\"{replacement}\""))]
-    } else if specifier.contains('"') {
-      vec![(format!("'{specifier}'"), format!("'{replacement}'"))]
-    } else {
-      vec![
-        (format!("\"{specifier}\""), format!("\"{replacement}\"")),
-        (format!("'{specifier}'"), format!("'{replacement}'")),
-      ]
-    };
-
-    for (target, value) in rewrites {
-      code = code.replace(&target, &value);
-    }
-  }
-
-  Ok(code)
-}
-
 /// Resolve a `.map` request to the source map of the transpiled file it names.
 async fn transpile_source_map(
   config: &Config,
-  tsconfig_cache: &TsConfigCache,
+  transformer: &TypeScriptTransformer,
   req_path: &str,
 ) -> anyhow::Result<Option<String>> {
   let Some(source_path) = req_path.strip_suffix(".map") else {
@@ -557,7 +495,9 @@ async fn transpile_source_map(
     return Ok(None);
   }
 
-  let result = transpile_file(config, tsconfig_cache, &file_path, source_path, kind).await?;
+  let result = transformer
+    .transpile(&file_path, &format!("/{}", source_path), kind, true)
+    .await?;
 
-  Ok(result.map)
+  Ok(result.and_then(|result| result.map))
 }

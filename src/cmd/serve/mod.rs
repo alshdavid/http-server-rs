@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use clap::Parser;
 use colored::Colorize;
+use grass::OutputStyle;
 
 use self::config::Config;
 use self::handler::ServeState;
@@ -18,7 +19,8 @@ use crate::platform::proxy::build_client;
 use crate::platform::self_upgrade;
 use crate::platform::self_upgrade::TARGET_REPO;
 use crate::platform::self_upgrade::UpgradeOptions;
-use crate::platform::transpile::tsconfig::TsConfigCache;
+use crate::platform::transpile::scss::ScssTransformer;
+use crate::platform::transpile::typescript::TypeScriptTransformer;
 use crate::platform::watcher::Watcher;
 use crate::platform::watcher::WatcherOptions;
 
@@ -197,12 +199,24 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     false => Some(Arc::new(build_client())),
   };
 
+  let worker_threads = std::thread::available_parallelism()
+    .map(usize::from)
+    .unwrap_or(1);
+
   let state = Arc::new(ServeState {
     config: config.clone(),
     logger: logger.clone(),
     watcher,
     proxy_client,
-    tsconfig_cache: Arc::new(TsConfigCache::new()),
+    scss_transformer: Arc::new(ScssTransformer::new(
+      &config.serve_dir_abs,
+      OutputStyle::Expanded,
+      worker_threads,
+    )),
+    typescript_transformer: Arc::new(TypeScriptTransformer::new(
+      &config.serve_dir_abs,
+      worker_threads,
+    )),
   });
 
   http1_server(&config.domain, {

@@ -1,114 +1,47 @@
 use std::path::Path;
 
+use grass::Fs;
 use grass::Options;
 use grass::OutputStyle;
 use normalize_path::NormalizePath;
 
-use super::TransformerContext;
-use super::TransformerResult;
+use super::fs::GrassFs;
 
 /// Files a stylesheet can reference without naming the extension.
 const PARTIAL_EXTENSIONS: [&str; 2] = ["scss", "sass"];
 
-/// `grass` resolves imports against the process working directory and reports
-/// paths relative to it in error messages. Compilation runs on a blocking
-/// thread, so the chdir would be process-wide; instead imports are resolved
-/// through a file system that refuses to leave the served directory.
-#[derive(Debug)]
-struct ServeFs {
-  root: std::path::PathBuf,
-}
-
-impl ServeFs {
-  fn new(root: &Path) -> Self {
-    Self {
-      root: root.to_path_buf(),
-    }
-  }
-
-  fn is_allowed(
-    &self,
-    path: &Path,
-  ) -> bool {
-    path.normalize().starts_with(&self.root)
-  }
-}
-
-impl grass::Fs for ServeFs {
-  fn is_dir(
-    &self,
-    path: &Path,
-  ) -> bool {
-    self.is_allowed(path) && path.is_dir()
-  }
-
-  fn is_file(
-    &self,
-    path: &Path,
-  ) -> bool {
-    self.is_allowed(path) && path.is_file()
-  }
-
-  fn read(
-    &self,
-    path: &Path,
-  ) -> std::io::Result<Vec<u8>> {
-    if !self.is_allowed(path) {
-      return Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        format!("{} is outside of the served directory", path.display()),
-      ));
-    }
-
-    std::fs::read(path)
-  }
-
-  fn canonicalize(
-    &self,
-    path: &Path,
-  ) -> std::io::Result<std::path::PathBuf> {
-    if !self.is_allowed(path) {
-      return Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        format!("{} is outside of the served directory", path.display()),
-      ));
-    }
-
-    std::fs::canonicalize(path)
-  }
-}
-
-fn options(ctx: &TransformerContext) -> Options<'_> {
-  let fs = Box::leak(Box::new(ServeFs::new(&ctx.root_dir)));
-
-  Options::default()
-    .fs(fs)
-    .style(OutputStyle::Expanded)
-    .load_path(ctx.path.parent().unwrap_or(Path::new(".")))
-}
-
-pub fn transpile(ctx: TransformerContext) -> anyhow::Result<TransformerResult> {
-  let source_path = match ctx.kind() {
-    "scss" | "sass" => ctx.path.clone(),
+/// Compile a stylesheet, resolving its imports through `fs`.
+pub fn transpile(
+  fs: &GrassFs,
+  path: &Path,
+  kind: &str,
+  output_style: OutputStyle,
+) -> anyhow::Result<String> {
+  let source_path = match kind {
+    "scss" | "sass" => path,
     _ => anyhow::bail!("Got an invalid file type"),
   };
 
-  let mut options = options(&ctx);
+  let mut options = Options::default()
+    .fs(fs)
+    .style(output_style)
+    .load_path(path.parent().unwrap_or(Path::new(".")));
 
-  if ctx.kind() == "sass" {
+  if kind == "sass" {
     options = options.input_syntax(grass::InputSyntax::Sass);
   }
 
   let code =
-    grass::from_path(&source_path, &options).map_err(|error| anyhow::anyhow!("{}", error))?;
+    grass::from_path(source_path, &options).map_err(|error| anyhow::anyhow!("{}", error))?;
 
-  Ok(TransformerResult { code, map: None })
+  Ok(code)
 }
 
 /// Resolve `@import`/`@use` references that name a stylesheet without its
 /// extension. The left hand side is the text as written, the right hand side
 /// the path to request in its place.
 pub fn candidates(
+  fs: &GrassFs,
   source: &str,
   source_path: &Path,
   root_dir: &Path,
@@ -117,7 +50,7 @@ pub fn candidates(
   let dir = source_path.parent().unwrap_or(Path::new("."));
 
   for specifier in specifiers(source) {
-    let Some(target) = find_in(dir, &specifier) else {
+    let Some(target) = find_in(fs, dir, &specifier) else {
       continue;
     };
 
@@ -140,6 +73,7 @@ pub fn candidates(
 /// Find the file a specifier names inside a single directory, preferring the
 /// partial form sass itself does, and stopping at one match per specifier.
 fn find_in(
+  fs: &GrassFs,
   dir: &Path,
   specifier: &str,
 ) -> Option<std::path::PathBuf> {
@@ -151,7 +85,7 @@ fn find_in(
 
   for candidate in [&path, &partial] {
     if candidate.extension().is_some() {
-      if candidate.is_file() {
+      if fs.is_file(candidate) {
         return Some(candidate.clone());
       }
 
@@ -161,7 +95,7 @@ fn find_in(
     for extension in PARTIAL_EXTENSIONS {
       let candidate = candidate.with_extension(extension);
 
-      if candidate.is_file() {
+      if fs.is_file(&candidate) {
         return Some(candidate);
       }
     }
@@ -250,15 +184,9 @@ mod tests {
     write(&entry, "@use 'theme';\na { color: theme.$color; }\n");
     write(&dir.join("_theme.scss"), "$color: red;\n");
 
-    let result = transpile(TransformerContext {
-      content: b"".to_vec(),
-      path: entry,
-      source_url: "/main.scss".to_string(),
-      source_maps: false,
-      kind: "scss".to_string(),
-      root_dir: dir,
-      tsconfig: Default::default(),
-    });
+    let fs = GrassFs::new(&dir);
+
+    let result = transpile(&fs, &entry, "scss", OutputStyle::Expanded);
 
     assert!(
       result.is_ok(),
@@ -272,7 +200,7 @@ mod tests {
 
     let result = result.unwrap();
 
-    assert!(result.code.contains("color: red"), "{}", result.code);
+    assert!(result.contains("color: red"), "{}", result);
   }
 
   #[test]
@@ -285,18 +213,9 @@ mod tests {
     write(&entry, "@use '../secret';\n");
     write(&dir.join("_secret.scss"), "$color: red;\n");
 
-    assert!(
-      transpile(TransformerContext {
-        content: b"".to_vec(),
-        path: entry,
-        source_url: "/main.scss".to_string(),
-        source_maps: false,
-        kind: "scss".to_string(),
-        root_dir: serve_dir,
-        tsconfig: Default::default(),
-      })
-      .is_err()
-    );
+    let fs = GrassFs::new(&serve_dir);
+
+    assert!(transpile(&fs, &entry, "scss", OutputStyle::Expanded).is_err());
   }
 
   #[test]
@@ -309,7 +228,9 @@ mod tests {
     write(&nested.join("_theme.scss"), "");
     write(&dir.join("_base.scss"), "");
 
-    let found = candidates("@use 'theme';\n@use '../base';\n", &entry, &dir);
+    let fs = GrassFs::new(&dir);
+
+    let found = candidates(&fs, "@use 'theme';\n@use '../base';\n", &entry, &dir);
 
     assert_eq!(
       found,
