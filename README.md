@@ -61,6 +61,9 @@ http-server-rs serve --shared-array-buffer ./public
 # Automatically transpiles TypeScript to JavaScript and Sass to CSS on request
 http-server-rs serve --transpile ./public
 
+# Limit the transpilation worker threads
+http-server-rs serve --transpile --transpile-worker-threads 4 ./public
+
 # Proxy /api to an external backend (quotes are required)
 http-server-rs serve --proxy "path=/api&target=http://localhost:3000" ./public
 
@@ -114,6 +117,8 @@ Options:
           Transpile served files
       --no-source-maps
           Don't generate source maps for transpiled files
+      --transpile-worker-threads <TRANSPILE_WORKER_THREADS>
+          Number of worker threads used for transpilation [default: available parallelism]
   -w, --watch
           Watch folder for changes and trigger a browser reload
       --watch-dir <WATCH_DIR>
@@ -139,6 +144,8 @@ Write your application as if your browser natively supports TypeScript and Sass.
 ```bash
 http-server-rs serve --transpile .
 ```
+
+Transpilation runs on a pool of worker threads per language (one for TypeScript, one for Sass). The pool size defaults to `available_parallelism` and can be set with `--transpile-worker-threads`; values are clamped to a minimum of `1`.
 
 https://github.com/user-attachments/assets/3d1bc313-e898-42bb-8c8f-a8023c41ec35
 

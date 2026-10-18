@@ -76,6 +76,10 @@ pub struct ServeCommand {
   #[arg(long = "no-source-maps")]
   pub no_source_maps: bool,
 
+  /// Number of worker threads used for transpilation [default: available parallelism]
+  #[arg(long = "transpile-worker-threads")]
+  pub transpile_worker_threads: Option<usize>,
+
   /// Watch folder for changes and trigger a browser reload
   #[arg(short = 'w', long = "watch")]
   pub watch: bool,
@@ -199,9 +203,14 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     false => Some(Arc::new(build_client())),
   };
 
-  let worker_threads = std::thread::available_parallelism()
-    .map(usize::from)
-    .unwrap_or(1);
+  let worker_threads = config
+    .transpile_worker_threads
+    .unwrap_or_else(|| {
+      std::thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1)
+    })
+    .max(1);
 
   let state = Arc::new(ServeState {
     config: config.clone(),
