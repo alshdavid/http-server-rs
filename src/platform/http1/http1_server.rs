@@ -12,12 +12,17 @@ use hyper::http::response::Builder as ResponseBuilder;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
+use hyper_util::server::graceful::GracefulShutdown;
 use tokio::net::TcpListener;
 use tokio::net::ToSocketAddrs;
 
-/// Simple wrapper around hyper to make it a little nicer to use
+/// Simple wrapper around hyper to make it a little nicer to use.
+///
+/// The returned future resolves once the listener stops and every in-flight
+/// connection has drained.
 pub async fn http1_server<F, Fut, A>(
   addr: A,
+  shutdown: impl Future<Output = ()>,
   handle_func: F,
 ) -> anyhow::Result<()>
 where
@@ -27,35 +32,42 @@ where
 {
   let listener = TcpListener::bind(&addr).await?;
   let handler_func_ref = Arc::new(handle_func);
+  let graceful = GracefulShutdown::new();
+  tokio::pin!(shutdown);
 
   loop {
-    let Ok((stream, _)) = listener.accept().await else {
-      continue;
-    };
-    let io = TokioIo::new(stream);
-    let handler_func_ref = handler_func_ref.clone();
+    tokio::select! {
+      _ = &mut shutdown => break,
+      accepted = listener.accept() => {
+        let Ok((stream, _)) = accepted else {
+          continue;
+        };
+        let io = TokioIo::new(stream);
+        let handler_func_ref = handler_func_ref.clone();
 
-    tokio::task::spawn(async move {
-      let service_builder = http1::Builder::new();
-      let service_handler = service_fn(move |req| {
-        let fut = handler_func_ref(req, Response::builder());
+        let service_handler = service_fn(move |req| {
+          let fut = handler_func_ref(req, Response::builder());
 
-        async move {
-          let handler_response = match fut.await {
-            Ok(handler_response) => handler_response,
-            Err(handler_error) => handle_error(handler_error),
-          };
+          async move {
+            let handler_response = match fut.await {
+              Ok(handler_response) => handler_response,
+              Err(handler_error) => handle_error(handler_error),
+            };
 
-          Ok::<Response<BoxBody<HyperBytes, Infallible>>, anyhow::Error>(handler_response)
-        }
-      });
+            Ok::<Response<BoxBody<HyperBytes, Infallible>>, anyhow::Error>(handler_response)
+          }
+        });
 
-      service_builder
-        .serve_connection(io, service_handler)
-        .await
-        .ok();
-    });
+        let connection = http1::Builder::new().serve_connection(io, service_handler);
+
+        tokio::spawn(graceful.watch(connection));
+      }
+    }
   }
+
+  graceful.shutdown().await;
+
+  Ok(())
 }
 
 fn handle_error(error: anyhow::Error) -> Response<BoxBody<HyperBytes, Infallible>> {
