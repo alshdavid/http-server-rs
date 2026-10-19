@@ -18,6 +18,7 @@ use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncWriteExt;
 
+use super::CompressionFormat;
 use super::config::Config;
 use super::constants::DEFAULT_CHARSET_SUFFIX;
 use crate::platform::b64;
@@ -306,13 +307,13 @@ pub async fn handle(
 
     let content_type = format!("text/css; {}", DEFAULT_CHARSET_SUFFIX);
 
-    if config.compress {
-      res = res.header("Content-Encoding", "br");
+    if let Some((encoding, body)) = compress_jit(&config, css.as_bytes()) {
+      res = res.header("Content-Encoding", encoding);
       return Ok(
         res
           .header("Content-Type", content_type)
           .status(200)
-          .body_from(compress::brotli(css.as_bytes()))?,
+          .body_from(body)?,
       );
     }
 
@@ -352,13 +353,13 @@ pub async fn handle(
 
     let content_type = format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX);
 
-    if config.compress {
-      res = res.header("Content-Encoding", "br");
+    if let Some((encoding, body)) = compress_jit(&config, code.as_bytes()) {
+      res = res.header("Content-Encoding", encoding);
       return Ok(
         res
           .header("Content-Type", content_type)
           .status(200)
-          .body_from(compress::brotli(code.as_bytes()))?,
+          .body_from(body)?,
       );
     }
 
@@ -466,11 +467,25 @@ pub async fn handle(
     }
   }
 
-  if config.compress {
-    res = res.header("Content-Encoding", "br");
-    Ok(res.status(200).body_from(compress::brotli(&contents))?)
+  if let Some((encoding, body)) = compress_jit(&config, &contents) {
+    res = res.header("Content-Encoding", encoding);
+    Ok(res.status(200).body_from(body)?)
   } else {
     Ok(res.status(200).body_from(contents)?)
+  }
+}
+
+fn compress_jit(
+  config: &Config,
+  input: &[u8],
+) -> Option<(&'static str, Vec<u8>)> {
+  if !config.compress {
+    return None;
+  }
+
+  match config.compress_format {
+    CompressionFormat::Br => Some(("br", compress::brotli(input))),
+    CompressionFormat::Gzip => Some(("gzip", compress::gzip(input))),
   }
 }
 
