@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use futures::TryStreamExt;
 use http::Response as HttpResponse;
 use http::Result as HttpResult;
@@ -15,29 +13,35 @@ pub trait ResponseBuilderExt {
   fn body_stream(
     self,
     stream_buffer_size: usize,
-  ) -> HttpResult<(HttpResponse<BoxBody<HyperBytes, Infallible>>, DuplexStream)>;
+  ) -> HttpResult<(
+    HttpResponse<BoxBody<HyperBytes, std::io::Error>>,
+    DuplexStream,
+  )>;
   fn body_from(
     self,
     bytes: impl Into<Bytes>,
-  ) -> HttpResult<HttpResponse<BoxBody<HyperBytes, Infallible>>>;
+  ) -> HttpResult<HttpResponse<BoxBody<HyperBytes, std::io::Error>>>;
 }
 
 impl ResponseBuilderExt for ResponseBuilder {
   fn body_stream(
     self,
     stream_buffer_size: usize,
-  ) -> HttpResult<(HttpResponse<BoxBody<HyperBytes, Infallible>>, DuplexStream)> {
+  ) -> HttpResult<(
+    HttpResponse<BoxBody<HyperBytes, std::io::Error>>,
+    DuplexStream,
+  )> {
     let (writer, reader) = tokio::io::duplex(stream_buffer_size);
 
     let reader_stream = tokio_util::io::ReaderStream::new(reader)
       .map_ok(hyper::body::Frame::data)
-      .map_err(|_item| panic!());
+      .map_err(std::io::Error::other);
 
     let stream_body = StreamBody::new(reader_stream);
-    let boxed_body: BoxBody<HyperBytes, Infallible> =
-      BoxBody::<HyperBytes, Infallible>::new(stream_body);
+    let boxed_body: BoxBody<HyperBytes, std::io::Error> =
+      BoxBody::<HyperBytes, std::io::Error>::new(stream_body);
 
-    let res: http::Response<BoxBody<HyperBytes, Infallible>> = self.body(boxed_body)?;
+    let res: http::Response<BoxBody<HyperBytes, std::io::Error>> = self.body(boxed_body)?;
 
     Ok((res, writer))
   }
@@ -45,7 +49,7 @@ impl ResponseBuilderExt for ResponseBuilder {
   fn body_from(
     self,
     bytes: impl Into<Bytes>,
-  ) -> HttpResult<HttpResponse<BoxBody<HyperBytes, Infallible>>> {
+  ) -> HttpResult<HttpResponse<BoxBody<HyperBytes, std::io::Error>>> {
     self.body(bytes.into().into())
   }
 }

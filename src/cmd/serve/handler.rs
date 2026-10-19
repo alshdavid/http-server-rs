@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
@@ -10,6 +9,7 @@ use colored::Colorize;
 use http_body_util::combinators::BoxBody;
 use hyper::Request;
 use hyper::Response;
+use hyper::body::Body;
 use hyper::body::Bytes as HyperBytes;
 use hyper::body::Incoming;
 use hyper::http::response::Builder as ResponseBuilder;
@@ -17,6 +17,7 @@ use normalize_path::NormalizePath;
 use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncWriteExt;
+use tokio::time::Instant;
 
 use super::config::Config;
 use super::constants::DEFAULT_CHARSET_SUFFIX;
@@ -36,6 +37,7 @@ use crate::platform::watcher::Watcher;
 
 pub struct ServeState {
   pub config: Arc<Config>,
+  pub serve_dir_canonical: PathBuf,
   pub logger: Arc<Logger>,
   pub watcher: Option<Watcher>,
   pub proxy_client: Option<Arc<ProxyClient>>,
@@ -45,9 +47,41 @@ pub struct ServeState {
 
 pub async fn handle(
   req: Request<Incoming>,
+  res: ResponseBuilder,
+  state: Arc<ServeState>,
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
+  let started = Instant::now();
+  let logger = state.logger.clone();
+  let uri = req.uri().clone();
+
+  let mut response = handle_request(req, res, state).await?;
+
+  let size = response.body().size_hint().exact().unwrap_or_default();
+  let status = response.status();
+  let elapsed = format_elapsed(started.elapsed());
+
+  if let Ok(value) = elapsed.parse() {
+    response.headers_mut().insert("X-Response-Time", value);
+  }
+
+  logger.println(format!(
+    "{} {} {} {}",
+    format!("[{}]", status.as_u16())
+      .color(status_color(status))
+      .bold(),
+    uri,
+    elapsed,
+    format_size(size)
+  ));
+
+  Ok(response)
+}
+
+async fn handle_request(
+  req: Request<Incoming>,
   mut res: ResponseBuilder,
   state: Arc<ServeState>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let config = state.config.clone();
   let logger = state.logger.clone();
   let watcher = state.watcher.clone();
@@ -83,7 +117,7 @@ pub async fn handle(
       return Ok(res.status(403).body_from("")?);
     };
 
-    if creds != password {
+    if !constant_time_eq(creds.as_bytes(), password.as_bytes()) {
       return Ok(res.status(403).body_from("")?);
     }
   }
@@ -104,14 +138,19 @@ pub async fn handle(
       target
     ));
 
+    let started = Instant::now();
     let response = proxy_request(&proxy_client, route, req).await?;
+    let elapsed = format_elapsed(started.elapsed());
+    let size = response.body().size_hint().exact().unwrap_or_default();
 
     logger.println(format!(
-      "{} {} -> {} {}",
+      "{} {} -> {} {} {} {}",
       "[proxy]".blue().bold(),
       request_uri,
       target,
-      response.status()
+      response.status(),
+      elapsed,
+      format_size(size)
     ));
 
     return Ok(response);
@@ -166,7 +205,7 @@ pub async fn handle(
           "data:{}\n\n",
           rx.borrow_and_update()
             .iter()
-            .map(|v| v.to_str().unwrap().to_string())
+            .map(|v| v.to_string_lossy().to_string())
             .collect::<Vec<String>>()
             .join(",")
         );
@@ -183,8 +222,6 @@ pub async fn handle(
     && let Some(name) = TypeScriptTransformer::helper_module_name(req.uri().path())
     && let Some(source) = TypeScriptTransformer::helper_module_source(name)
   {
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
-
     return Ok(
       res
         .header(
@@ -199,6 +236,13 @@ pub async fn handle(
   // hyper handles preventing access to parent directories via "../../"
   // but this is an extra layer of protection
   if !file_path.normalize().starts_with(&config.serve_dir_abs) {
+    return Ok(res.status(403).body_from("Not allowed")?);
+  }
+
+  // Canonicalize so symlinks can't point outside the served directory
+  if let Some(canonical) = file_path.canonicalize().ok()
+    && !canonical.starts_with(&state.serve_dir_canonical)
+  {
     logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
     return Ok(res.status(403).body_from("Not allowed")?);
   }
@@ -208,8 +252,6 @@ pub async fn handle(
     && config.source_maps
     && let Some(map) = transpile_source_map(&config, &typescript_transformer, &req_path).await?
   {
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
-
     return Ok(
       res
         .header(
@@ -232,14 +274,19 @@ pub async fn handle(
       location.push_str(query);
     }
 
-    logger.println(format!("{} {}", "[301]".yellow().bold(), req.uri()));
-
     return Ok(res.header("Location", location).status(301).body_from("")?);
   }
 
   // Try to serve index.html
   if file_path.is_dir() && file_path.join("index.html").exists() {
     file_path = file_path.join("index.html");
+
+    if let Some(canonical) = file_path.canonicalize().ok()
+      && !canonical.starts_with(&state.serve_dir_canonical)
+    {
+      logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+      return Ok(res.status(403).body_from("Not allowed")?);
+    }
   }
 
   // Apply custom headers
@@ -289,7 +336,6 @@ pub async fn handle(
 
   // 404 if no file exists
   if !file_path.exists() {
-    logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
     return Ok(res.status(404).body_from("File not found")?);
   }
 
@@ -301,8 +347,6 @@ pub async fn handle(
 
   if config.transpile && (ext == "scss" || ext == "sass") {
     let css = scss_transformer.transpile(&file_path, &ext).await?;
-
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
     let content_type = format!("text/css; {}", DEFAULT_CHARSET_SUFFIX);
 
@@ -334,7 +378,6 @@ pub async fn handle(
       )
       .await?
     else {
-      logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
       return Ok(res.status(404).body_from("File not found")?);
     };
 
@@ -347,8 +390,6 @@ pub async fn handle(
       Some(_) => format!("{}\n//# sourceMappingURL={}.map\n", result.code, map_name),
       None => result.code,
     };
-
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
     let content_type = format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX);
 
@@ -391,8 +432,11 @@ pub async fn handle(
 
   // If a .br or .gz file is found next to the target, serve that file
   if !config.compress {
-    let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
-    let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
+    let Some(file_path_str) = file_path.to_str() else {
+      return Ok(res.status(404).body_from("File not found")?);
+    };
+    let brotli_path = PathBuf::from(format!("{}.br", file_path_str));
+    let gzip_path = PathBuf::from(format!("{}.gz", file_path_str));
 
     if brotli_path.exists() {
       file_path = brotli_path;
@@ -409,8 +453,6 @@ pub async fn handle(
   let content_length = file.metadata().await?.size();
   #[cfg(windows)]
   let content_length = file.metadata().await?.file_size();
-
-  logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
   // Read file
   // Stream file if it's larger than 5mb
@@ -471,6 +513,46 @@ pub async fn handle(
     Ok(res.status(200).body_from(compress::brotli(&contents))?)
   } else {
     Ok(res.status(200).body_from(contents)?)
+  }
+}
+
+fn constant_time_eq(
+  a: &[u8],
+  b: &[u8],
+) -> bool {
+  a.len() == b.len() && subtle::ConstantTimeEq::ct_eq(a, b).into()
+}
+
+fn format_elapsed(elapsed: std::time::Duration) -> String {
+  let micros = elapsed.as_micros();
+
+  if micros < 1_000 {
+    format!("{}us", micros)
+  } else {
+    format!("{:.2}ms", elapsed.as_secs_f64() * 1000.0)
+  }
+}
+
+fn format_size(size: u64) -> String {
+  const KB: u64 = 1024;
+  const MB: u64 = 1024 * 1024;
+
+  if size < KB {
+    format!("{}B", size)
+  } else if size < MB {
+    format!("{:.1}KB", size as f64 / KB as f64)
+  } else {
+    format!("{:.1}MB", size as f64 / MB as f64)
+  }
+}
+
+fn status_color(status: hyper::StatusCode) -> colored::Color {
+  if status.is_server_error() {
+    colored::Color::Red
+  } else if status.is_client_error() {
+    colored::Color::Yellow
+  } else {
+    colored::Color::Green
   }
 }
 

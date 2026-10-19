@@ -102,7 +102,7 @@ pub struct ServeCommand {
   pub skip_upgrade_check: bool,
 
   /// Configure the buffer size when streaming files
-  #[arg(long = "stream-buffer-size", default_value = "4000")]
+  #[arg(long = "stream-buffer-size", default_value = "65536")]
   pub stream_buffer_size: usize,
 
   /// Reverse proxy routes (URL-encoded, e.g.
@@ -201,7 +201,7 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
 
   let proxy_client = match config.proxy.is_empty() {
     true => None,
-    false => Some(Arc::new(build_client())),
+    false => Some(Arc::new(build_client(&config.proxy)?)),
   };
 
   let worker_threads = config
@@ -213,8 +213,12 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     })
     .max(1);
 
+  // Resolve symlinks once so the handler's boundary check can't be escaped by one
+  let serve_dir_canonical = tokio::fs::canonicalize(&config.serve_dir_abs).await?;
+
   let state = Arc::new(ServeState {
     config: config.clone(),
+    serve_dir_canonical,
     logger: logger.clone(),
     watcher,
     proxy_client,
