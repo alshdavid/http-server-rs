@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::sync::Arc;
 
 use http_body_util::BodyExt;
@@ -45,7 +44,7 @@ pub async fn proxy_request(
   client: &Arc<ProxyClient>,
   route: &ProxyRoute,
   req: Request<Incoming>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let request_path = req.uri().path().to_string();
   let query = req.uri().query().map(|v| v.to_string());
   let method = req.method().clone();
@@ -106,16 +105,8 @@ pub async fn proxy_request(
     res = res.header(key, value);
   }
 
-  // Collect the upstream body into memory so it can be re-framed with an
-  // `Infallible` error type expected by the server response body.
-  let body = upstream_res
-    .into_body()
-    .collect()
-    .await
-    .map_err(|err| anyhow::anyhow!("Unable to read proxied response body: {}", err))?
-    .to_bytes();
-
-  let body: BoxBody<HyperBytes, Infallible> = BoxBody::new(http_body_util::Full::new(body));
+  let body: BoxBody<HyperBytes, std::io::Error> =
+    BoxBody::new(upstream_res.into_body().map_err(std::io::Error::other));
 
   let res = res.body(body)?;
 

@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
@@ -47,7 +46,7 @@ pub async fn handle(
   req: Request<Incoming>,
   mut res: ResponseBuilder,
   state: Arc<ServeState>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let config = state.config.clone();
   let logger = state.logger.clone();
   let watcher = state.watcher.clone();
@@ -166,7 +165,7 @@ pub async fn handle(
           "data:{}\n\n",
           rx.borrow_and_update()
             .iter()
-            .map(|v| v.to_str().unwrap().to_string())
+            .map(|v| v.to_string_lossy().to_string())
             .collect::<Vec<String>>()
             .join(",")
         );
@@ -391,8 +390,11 @@ pub async fn handle(
 
   // If a .br or .gz file is found next to the target, serve that file
   if !config.compress {
-    let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
-    let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
+    let Some(file_path_str) = file_path.to_str() else {
+      return Ok(res.status(404).body_from("File not found")?);
+    };
+    let brotli_path = PathBuf::from(format!("{}.br", file_path_str));
+    let gzip_path = PathBuf::from(format!("{}.gz", file_path_str));
 
     if brotli_path.exists() {
       file_path = brotli_path;
