@@ -36,6 +36,7 @@ use crate::platform::watcher::Watcher;
 
 pub struct ServeState {
   pub config: Arc<Config>,
+  pub serve_dir_canonical: PathBuf,
   pub logger: Arc<Logger>,
   pub watcher: Option<Watcher>,
   pub proxy_client: Option<Arc<ProxyClient>>,
@@ -203,6 +204,14 @@ pub async fn handle(
     return Ok(res.status(403).body_from("Not allowed")?);
   }
 
+  // Canonicalize so symlinks can't point outside the served directory
+  if let Some(canonical) = file_path.canonicalize().ok()
+    && !canonical.starts_with(&state.serve_dir_canonical)
+  {
+    logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+    return Ok(res.status(403).body_from("Not allowed")?);
+  }
+
   // Source maps are requested as the `.map` sibling of a transpiled file
   if config.transpile
     && config.source_maps
@@ -240,6 +249,13 @@ pub async fn handle(
   // Try to serve index.html
   if file_path.is_dir() && file_path.join("index.html").exists() {
     file_path = file_path.join("index.html");
+
+    if let Some(canonical) = file_path.canonicalize().ok()
+      && !canonical.starts_with(&state.serve_dir_canonical)
+    {
+      logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+      return Ok(res.status(403).body_from("Not allowed")?);
+    }
   }
 
   // Apply custom headers
