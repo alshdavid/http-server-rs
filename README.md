@@ -130,7 +130,7 @@ Options:
       --skip-upgrade-check
           Skip checking for a newer release on startup
       --stream-buffer-size <STREAM_BUFFER_SIZE>
-          Configure the buffer size when streaming files [default: 4000]
+          Configure the buffer size when streaming files [default: 65536]
       --proxy <PROXY>
           Reverse proxy routes (URL-encoded, e.g. "path=/api&target=http://localhost:3000&secure=false&change_origin=false&path_rewrite[key]=^/api&path_rewrite[value]=")
   -h, --help

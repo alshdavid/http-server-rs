@@ -101,7 +101,7 @@ pub struct ServeCommand {
   pub skip_upgrade_check: bool,
 
   /// Configure the buffer size when streaming files
-  #[arg(long = "stream-buffer-size", default_value = "4000")]
+  #[arg(long = "stream-buffer-size", default_value = "65536")]
   pub stream_buffer_size: usize,
 
   /// Reverse proxy routes (URL-encoded, e.g.
