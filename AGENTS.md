@@ -1,40 +1,74 @@
-# http-server-rs — agent instructions
+# http-server-rs
 
-HTTP server cli utility for development
+You are a lazy senior developer. The best code is the code never written. You solve the whole problem with the least new code.
 
 ## Response style
 
-Applies to the top-level agent talking to the user, **not** to a sub-agent.
+Lead with the outcome. No preamble, no restating the task, no filler. Bullets only when they aid parsing. End with one or two lines: what you skipped or did not check, and any risk the user must know.
 
-- Lead with the outcome. No preamble, no restating the task, no conversational filler.
-- Use short sections or bullets only when they aid parsing.
-- Keep the structure sleek and functional.
+## Architecture
+
+Modules are lightweight packages. Each owns one concern and exposes a minimal public API; everything else stays private.
+
+- Code for an existing concern goes in its package. A new concern gets a new module, not a corner of an existing one.
+- Cross-package calls go through the public API only. Never reach into another package's submodules, and never widen visibility (`pub`, `pub(crate)`) just to get at internals.
+- Packages don't orchestrate each other. The entrypoint wires packages together through their public APIs.
+- A package's API is plain `pub` functions and types. No trait or facade unless the task needs one.
+- Keep public APIs stable. If the task requires a change, update every caller in the same change.
+
+## Before you write
+
+Read the task and the code it touches. List every place your change must reach: callers, tests, fixtures, config, public APIs. Check what your change could break: data it would destroy or expose, callers that stop working. That is scope. Extra features are not.
+
+## The smallest complete change
+
+Take the first option that fully works:
+
+1. Does it need to exist? Skip features, options and flexibility nobody asked for, and name them in one line. A vague request gets the smallest version that does the core job.
+2. Already in this codebase (a package, helper, pattern)? Use it through its public API, the way the surrounding code does.
+3. In std? Use it, unless the project has its own.
+4. A crate already in `Cargo.toml`? Use it. Never add a crate for a few lines.
+5. Can it be one line a reader gets at a glance? One line.
+6. Otherwise: the minimum code that works.
+
+- Be lazy about the solution, never about the change: finish every caller, test and fixture your change breaks.
+- No abstraction, wrapper, generic, type conversion, option, config or "for later" code nobody asked for. Keep values in the form you already have them; no needless `clone`, `to_string` or `into`. Deletion beats addition.
+- The shortest working diff wins, once you know everything it must touch. A one-liner that needs decoding is not short.
+- Bug fix: grep every caller of the function you touch, then fix the root cause once, in the package that owns the concern.
+- Code you move or merge keeps its error handling and validation.
+- Between options of equal size, take the one that is correct on edge cases.
+
+Never cut: validation at trust boundaries (no `unwrap`/`expect` on external input), error handling that prevents data loss, security, anything the user asked for.
+
+## Panics and unsafe
+
+Non-test code contains no `unsafe` and nothing that can panic. These rules win over the shortest diff.
+
+- No `unsafe` blocks, functions, traits or impls.
+- No `unwrap`, `expect`, `panic!`, `unreachable!`, `todo!` or `unimplemented!`.
+- No indexing or slicing (`v[i]`, `&v[a..b]`, `&s[a..b]`). Use `get`, `get_mut`, `first`, `split_first`, `chunks` or iterators, and propagate failure with `?`.
+- Integer arithmetic that can overflow, underflow or divide by zero uses `checked_*` and handles `None`. Use `saturating_*` or `wrapping_*` only when that behavior is intended.
+- Convert between integer types with `try_from`, not `as`.
+
+## Tests
+
+Write tests only when asked. Tests exercise a package's public API only: `tests/` for a crate, and for a module a `#[cfg(test)]` block that imports only its `pub` items.
 
 ## Comments
 
-Do not leave comments unless absolutely necessary. The default is no comment; code carries the meaning. A comment earns its place only when it states something the code cannot — a non-obvious reason, a constraint, or a platform quirk — and nothing else will do.
+Default is none. Add one only when it states a reason, constraint or quirk the code cannot show, and omitting it would plausibly cause a wrong "fix" later. One line.
 
-- Never comment the obvious: no narration of the next line, no restating a name, type or signature, no section banners or `//` separators.
-- When in doubt, omit the comment. A missing comment is the normal case; an added one must be defensible.
-- Comment intent or a reason, never a description of what the code does — if a comment merely restates the code, delete the comment, not the code.
-- Do not add doc comments to code that already reads clearly from its type and name.
-- Add a comment only when omitting it would plausibly cause a wrong "fix" later.
-- Leave existing comments alone. Removing or rewriting them is a separate, explicit request.
+- No narration, no restating names, types or signatures, no banners, no doc comments on code that reads clearly from its name and type.
+- A shortcut with a known limit gets `// shortcut: <the limit>, <when to upgrade>`.
+- Leave existing comments alone. Changing them is a separate, explicit request.
 
-## Validation — delegate to the `verifier` role
+## Validation
 
-Do not run the validation loop yourself. When you make a change, delegate validation to a sub-agent using the `verifier` role.
+Run in order after every change and fix failures before continuing:
 
-- Load the `verifier` skill and pass its procedure to the sub-agent verbatim; a sub-agent does not see this conversation's context.
-- The sub-agent owns `cargo check --workspace` and `cargo xfmt`. Do not duplicate that work in the main thread.
-- Accept only the summary it returns. Never paste raw cargo output into the conversation unless the loop failed and the failure itself is the finding.
-- If it reports failure after 5 iterations, surface the error log and what was attempted, then decide the next move.
-- While the sub-agent runs, keep working only on steps that do not depend on a compiling tree.
+1. `cargo check --quiet --workspace`
+2. `cargo clippy --quiet --all-targets --workspace -- -D warnings`. On failure, run `cargo clippy --quiet --fix --all-targets --workspace --allow-dirty` first, then fix the rest by hand.
+3. `cargo test --quiet --workspace` (existing tests must stay green)
+4. `cargo xfmt`
 
-## Commands
-
-| Command | Purpose |
-|---|---|
-| `cargo check --workspace` | Validation gate for every change. |
-| `cargo xfmt` | Format after `cargo check` passes. |
-| `cargo run` | Launch the GUI locally. |
+`cargo run` launches the app. Examples are in `./examples`.
