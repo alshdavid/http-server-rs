@@ -5,6 +5,7 @@ use clap::Parser;
 use clap::Subcommand;
 
 #[derive(Debug, Parser)]
+#[command(version)]
 struct Command {
   #[clap(subcommand)]
   command: Commands,
