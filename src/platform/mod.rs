@@ -6,5 +6,6 @@ pub mod ip_address;
 pub mod logger;
 pub mod proxy;
 pub mod self_upgrade;
+pub mod shutdown;
 pub mod transpile;
 pub mod watcher;

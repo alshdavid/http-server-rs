@@ -19,6 +19,7 @@ use crate::platform::proxy::build_client;
 use crate::platform::self_upgrade;
 use crate::platform::self_upgrade::TARGET_REPO;
 use crate::platform::self_upgrade::UpgradeOptions;
+use crate::platform::shutdown::shutdown_signal;
 use crate::platform::transpile::scss::ScssTransformer;
 use crate::platform::transpile::typescript::TypeScriptTransformer;
 use crate::platform::watcher::Watcher;
@@ -232,7 +233,7 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     )),
   });
 
-  http1_server(&config.domain, {
+  http1_server(&config.domain, shutdown_signal(), {
     let state = state.clone();
 
     move |req, res| {
