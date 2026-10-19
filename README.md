@@ -55,6 +55,9 @@ http-server-rs serve
 # Enable CORS, reroute requests to index.html and automatically compress served files
 http-server-rs serve --cors --spa -Z ./public
 
+# Compress responses with gzip instead of brotli
+http-server-rs serve -Z --compress-format gzip ./public
+
 # Responds with headers required for SharedArrayBuffer
 http-server-rs serve --shared-array-buffer ./public
 
@@ -103,6 +106,8 @@ Options:
           Cache control time [default: 0]
   -Z, --compress
           Compress responses (JIT)
+      --compress-format <COMPRESS_FORMAT>
+          Compression format to use when compressing responses [default: br] [possible values: br, gzip]
   -H, --header <HEADERS>
           Custom headers (Format "key:value")
       --auth <BASIC_AUTH>

@@ -7,6 +7,7 @@ use std::time::Duration;
 use normalize_path::NormalizePath;
 use pathdiff::diff_paths;
 
+use super::CompressionFormat;
 use super::ServeCommand;
 use crate::platform::proxy::ProxyConfig;
 use crate::platform::proxy::parse_proxy_config;
@@ -20,6 +21,7 @@ pub struct Config {
   pub spa: bool,
   pub cors: bool,
   pub compress: bool,
+  pub compress_format: CompressionFormat,
   pub sab: bool,
   pub domain: String,
   pub domain_pretty: String,
@@ -141,6 +143,7 @@ impl Config {
       spa: command.spa,
       cors: command.cors,
       compress: command.compress,
+      compress_format: command.compress_format,
       sab: command.sab,
       address: command.address,
       basic_auth,

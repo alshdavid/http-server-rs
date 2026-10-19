@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Parser;
+use clap::ValueEnum;
 use colored::Colorize;
 use grass::OutputStyle;
 
@@ -23,6 +24,13 @@ use crate::platform::transpile::scss::ScssTransformer;
 use crate::platform::transpile::typescript::TypeScriptTransformer;
 use crate::platform::watcher::Watcher;
 use crate::platform::watcher::WatcherOptions;
+
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+pub enum CompressionFormat {
+  #[default]
+  Br,
+  Gzip,
+}
 
 #[derive(Debug, Parser)]
 pub struct ServeCommand {
@@ -47,6 +55,10 @@ pub struct ServeCommand {
   /// Compress responses (JIT)
   #[arg(short = 'Z', long = "compress")]
   pub compress: bool,
+
+  /// Compression format to use when compressing responses
+  #[arg(long = "compress-format", default_value = "br")]
+  pub compress_format: CompressionFormat,
 
   /// Custom headers (Format "key:value")
   #[arg(short = 'H', long = "header")]
