@@ -72,8 +72,8 @@ pub fn render_directory_explorer(
       ));
     };
 
-    let abs_path_str = abs_path.to_str().unwrap().to_string();
-    let rel_path_str = rel_path.to_str().unwrap().to_string();
+    let abs_path_str = abs_path.to_string_lossy().to_string();
+    let rel_path_str = rel_path.to_string_lossy().to_string();
 
     if item.file_type()?.is_dir() {
       folders.push((
@@ -83,9 +83,9 @@ pub fn render_directory_explorer(
         rel_path_str,
       ));
     } else {
-      let filename = PathBuf::from(item.file_name().into_string().unwrap());
+      let filename = PathBuf::from(item.file_name());
       let file_extension = match filename.extension() {
-        Some(ext) => ext.to_str().unwrap().to_string(),
+        Some(ext) => ext.to_string_lossy().to_string(),
         None => "".to_string(),
       };
 
@@ -105,9 +105,9 @@ pub fn render_directory_explorer(
   if let Some(up_one) = dir_path.parent()
     && dir_path != config.serve_dir_abs.normalize()
   {
-    let diff = pathdiff::diff_paths(up_one, &config.serve_dir_abs).unwrap();
-    let diff_str = diff.to_str().unwrap();
-    parent = Some(format!("/{}", diff_str));
+    let diff = pathdiff::diff_paths(up_one, &config.serve_dir_abs)
+      .ok_or_else(|| anyhow::anyhow!("Unable to diff parent path"))?;
+    parent = Some(format!("/{}", diff.to_string_lossy()));
   }
 
   folders.sort_by_key(|a| a.3.to_lowercase());

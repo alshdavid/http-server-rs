@@ -134,7 +134,7 @@ impl Config {
     }
 
     Ok(Config {
-      serve_dir_fmt: format!(".{}{}", MAIN_SEPARATOR_STR, serve_dir_rel.to_str().unwrap()),
+      serve_dir_fmt: format!(".{}{}", MAIN_SEPARATOR_STR, serve_dir_rel.to_string_lossy()),
       serve_dir_abs: serve_dir_abs.clone(),
       domain,
       domain_pretty,
