@@ -36,6 +36,7 @@ use crate::platform::watcher::Watcher;
 
 pub struct ServeState {
   pub config: Arc<Config>,
+  pub compressor: compress::SharedCompressor,
   pub logger: Arc<Logger>,
   pub watcher: Option<Watcher>,
   pub proxy_client: Option<Arc<ProxyClient>>,
@@ -49,6 +50,7 @@ pub async fn handle(
   state: Arc<ServeState>,
 ) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
   let config = state.config.clone();
+  let compressor = state.compressor.clone();
   let logger = state.logger.clone();
   let watcher = state.watcher.clone();
   let proxy_client = state.proxy_client.clone();
@@ -308,11 +310,13 @@ pub async fn handle(
 
     if config.compress {
       res = res.header("Content-Encoding", "br");
+      let key = format!("{}.brotli", file_path.to_string_lossy());
+      let id = compress::id(&file_path);
       return Ok(
         res
           .header("Content-Type", content_type)
           .status(200)
-          .body_from(compress::brotli(css.as_bytes()))?,
+          .body_from(compressor.compress_and_store(&key, id, css.as_bytes()))?,
       );
     }
 
@@ -354,11 +358,13 @@ pub async fn handle(
 
     if config.compress {
       res = res.header("Content-Encoding", "br");
+      let key = format!("{}.brotli", file_path.to_string_lossy());
+      let id = compress::id(&file_path);
       return Ok(
         res
           .header("Content-Type", content_type)
           .status(200)
-          .body_from(compress::brotli(code.as_bytes()))?,
+          .body_from(compressor.compress_and_store(&key, id, code.as_bytes()))?,
       );
     }
 
@@ -432,6 +438,8 @@ pub async fn handle(
     return Ok(res.status(500).body_from("Unable to open file")?);
   };
 
+  let original_contents = contents.clone();
+
   // If using watch mode and automatically injecting the reload script
   // and file is html, mutate response to inject script
   if config.watch
@@ -468,7 +476,16 @@ pub async fn handle(
 
   if config.compress {
     res = res.header("Content-Encoding", "br");
-    Ok(res.status(200).body_from(compress::brotli(&contents))?)
+    let file_key = file_path.to_string_lossy();
+    let key = format!("{}.brotli", file_key);
+    let id = compress::id(&file_path);
+
+    // When watch injection changed the body, the cached entry is stale
+    let output = match contents == original_contents {
+      true => compressor.compress(&key, id, &contents),
+      false => compressor.compress_and_store(&key, id, &contents),
+    };
+    Ok(res.status(200).body_from(output)?)
   } else {
     Ok(res.status(200).body_from(contents)?)
   }

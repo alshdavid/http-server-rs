@@ -44,15 +44,15 @@ impl Logger {
   pub fn print_config(
     &self,
     key: &str,
-    value: &bool,
+    enabled: bool,
   ) {
     match self {
       Logger::Quiet => return,
       Logger::Default => {}
     }
-    let message = if *value { "Enabled" } else { "Disabled" };
+    let value = if enabled { "Enabled" } else { "Disabled" };
     let key = format!("{}:", key);
-    println!("🔧 {:<19} {}", key.bold(), message);
+    println!("🔧 {:<19} {}", key.bold(), value);
   }
 
   pub fn print_headers(

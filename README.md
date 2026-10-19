@@ -103,6 +103,8 @@ Options:
           Cache control time [default: 0]
   -Z, --compress
           Compress responses (JIT)
+      --compress-level <COMPRESS_LEVEL>
+          Brotli compression level used for JIT compression (0-11) [default: 11]
   -H, --header <HEADERS>
           Custom headers (Format "key:value")
       --auth <BASIC_AUTH>
@@ -186,6 +188,16 @@ curl http://localhost:8080/style.scss
 Notes;
 - A file is served at its own path, so the page links `style.scss` rather than a `.css` twin
 - Imports are restricted to the served directory
+
+## Compression
+
+`--compress` brotli-compresses responses on the fly. Compressed output is cached in memory and only recomputed when the source file changes (path, mtime and size), or when `--watch` reports a change.
+
+Quality defaults to `11` (smallest output, slowest). Use a lower `--compress-level` (e.g. `1`) for faster responses during development.
+
+```bash
+http-server-rs serve --compress --compress-level 1 ./dist
+```
 
 ## Watch Mode
 
