@@ -212,8 +212,12 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     })
     .max(1);
 
+  // Resolve symlinks once so the handler's boundary check can't be escaped by one
+  let serve_dir_canonical = tokio::fs::canonicalize(&config.serve_dir_abs).await?;
+
   let state = Arc::new(ServeState {
     config: config.clone(),
+    serve_dir_canonical,
     logger: logger.clone(),
     watcher,
     proxy_client,
