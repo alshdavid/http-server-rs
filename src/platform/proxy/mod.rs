@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::Infallible;
 use std::sync::Arc;
 
 use http_body_util::BodyExt;
@@ -8,17 +7,34 @@ use hyper::Request;
 use hyper::Response;
 use hyper::body::Bytes as HyperBytes;
 use hyper::body::Incoming;
+use hyper_rustls::HttpsConnector;
+use hyper_rustls::HttpsConnectorBuilder;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::TokioExecutor;
 use serde::Deserialize;
 
 /// Shared HTTP client used when forwarding proxied requests upstream.
-pub type ProxyClient = Client<HttpConnector, Incoming>;
+pub type ProxyClient = Client<HttpsConnector<HttpConnector>, Incoming>;
 
 /// Build the HTTP client used to forward proxied requests.
-pub fn build_client() -> ProxyClient {
-  Client::builder(TokioExecutor::new()).build_http()
+///
+/// TLS certificates are always verified; `secure=false` routes are rejected.
+pub fn build_client(config: &ProxyConfig) -> anyhow::Result<ProxyClient> {
+  if let Some((path, _)) = config.iter().find(|(_, route)| !route.secure) {
+    return Err(anyhow::anyhow!(
+      "Proxy route '{}' sets secure=false, which is not supported: TLS certificates are always verified",
+      path
+    ));
+  }
+
+  let https = HttpsConnectorBuilder::new()
+    .with_native_roots()?
+    .https_or_http()
+    .enable_http1()
+    .build();
+
+  Ok(Client::builder(TokioExecutor::new()).build(https))
 }
 
 /// Forward an incoming request to the upstream target defined by `route`.
@@ -28,7 +44,7 @@ pub async fn proxy_request(
   client: &Arc<ProxyClient>,
   route: &ProxyRoute,
   req: Request<Incoming>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let request_path = req.uri().path().to_string();
   let query = req.uri().query().map(|v| v.to_string());
   let method = req.method().clone();
@@ -89,16 +105,8 @@ pub async fn proxy_request(
     res = res.header(key, value);
   }
 
-  // Collect the upstream body into memory so it can be re-framed with an
-  // `Infallible` error type expected by the server response body.
-  let body = upstream_res
-    .into_body()
-    .collect()
-    .await
-    .map_err(|err| anyhow::anyhow!("Unable to read proxied response body: {}", err))?
-    .to_bytes();
-
-  let body: BoxBody<HyperBytes, Infallible> = BoxBody::new(http_body_util::Full::new(body));
+  let body: BoxBody<HyperBytes, std::io::Error> =
+    BoxBody::new(upstream_res.into_body().map_err(std::io::Error::other));
 
   let res = res.body(body)?;
 
@@ -168,10 +176,7 @@ fn default_true() -> bool {
 pub struct ProxyRoute {
   pub target: String,
 
-  /// Whether TLS certificates should be verified when the target is HTTPS.
-  ///
-  /// Parsed and stored for now, but not yet enforced by the client.
-  #[allow(dead_code)]
+  /// Accepted for compatibility; disabling verification is rejected at startup.
   pub secure: bool,
 
   pub change_origin: bool,
@@ -382,6 +387,16 @@ mod tests {
   #[test]
   fn rejects_missing_target() {
     assert!(ProxyRouteInput::parse("path=/api").is_err());
+  }
+
+  #[test]
+  fn rejects_insecure_routes() {
+    let config = parse_proxy_config(vec![
+      "path=/api&target=http://localhost:3000&secure=false".to_string(),
+    ])
+    .unwrap();
+
+    assert!(build_client(&config).is_err());
   }
 
   #[test]
