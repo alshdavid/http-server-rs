@@ -117,7 +117,7 @@ async fn handle_request(
       return Ok(res.status(403).body_from("")?);
     };
 
-    if creds != password {
+    if !constant_time_eq(creds.as_bytes(), password.as_bytes()) {
       return Ok(res.status(403).body_from("")?);
     }
   }
@@ -514,6 +514,13 @@ async fn handle_request(
   } else {
     Ok(res.status(200).body_from(contents)?)
   }
+}
+
+fn constant_time_eq(
+  a: &[u8],
+  b: &[u8],
+) -> bool {
+  a.len() == b.len() && subtle::ConstantTimeEq::ct_eq(a, b).into()
 }
 
 fn format_elapsed(elapsed: std::time::Duration) -> String {

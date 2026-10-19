@@ -1228,6 +1228,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_qs",
+ "subtle",
  "swc_core",
  "tokio",
  "tokio-util",
