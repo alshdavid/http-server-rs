@@ -34,7 +34,12 @@ impl GrassFs {
     &self,
     path: &Path,
   ) -> bool {
-    path.normalize().starts_with(&self.root_dir)
+    // Canonicalize so symlinks cannot escape, and so macOS (/private/var) and
+    // Windows (\\?\) forms of the same directory compare equal to the root.
+    match (path.canonicalize(), self.root_dir.canonicalize()) {
+      (Ok(path), Ok(root)) => path.starts_with(root),
+      _ => path.normalize().starts_with(&self.root_dir),
+    }
   }
 
   /// Refuse reads outside the served directory with the error `grass` expects
