@@ -10,6 +10,7 @@ use colored::Colorize;
 use http_body_util::combinators::BoxBody;
 use hyper::Request;
 use hyper::Response;
+use hyper::body::Body;
 use hyper::body::Bytes as HyperBytes;
 use hyper::body::Incoming;
 use hyper::http::response::Builder as ResponseBuilder;
@@ -17,6 +18,7 @@ use normalize_path::NormalizePath;
 use tokio::fs::File;
 use tokio::io;
 use tokio::io::AsyncWriteExt;
+use tokio::time::Instant;
 
 use super::config::Config;
 use super::constants::DEFAULT_CHARSET_SUFFIX;
@@ -44,6 +46,38 @@ pub struct ServeState {
 }
 
 pub async fn handle(
+  req: Request<Incoming>,
+  res: ResponseBuilder,
+  state: Arc<ServeState>,
+) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+  let started = Instant::now();
+  let logger = state.logger.clone();
+  let uri = req.uri().clone();
+
+  let mut response = handle_request(req, res, state).await?;
+
+  let size = response.body().size_hint().exact().unwrap_or_default();
+  let status = response.status();
+  let elapsed = format_elapsed(started.elapsed());
+
+  if let Ok(value) = elapsed.parse() {
+    response.headers_mut().insert("X-Response-Time", value);
+  }
+
+  logger.println(format!(
+    "{} {} {} {}",
+    format!("[{}]", status.as_u16())
+      .color(status_color(status))
+      .bold(),
+    uri,
+    elapsed,
+    format_size(size)
+  ));
+
+  Ok(response)
+}
+
+async fn handle_request(
   req: Request<Incoming>,
   mut res: ResponseBuilder,
   state: Arc<ServeState>,
@@ -104,14 +138,19 @@ pub async fn handle(
       target
     ));
 
+    let started = Instant::now();
     let response = proxy_request(&proxy_client, route, req).await?;
+    let elapsed = format_elapsed(started.elapsed());
+    let size = response.body().size_hint().exact().unwrap_or_default();
 
     logger.println(format!(
-      "{} {} -> {} {}",
+      "{} {} -> {} {} {} {}",
       "[proxy]".blue().bold(),
       request_uri,
       target,
-      response.status()
+      response.status(),
+      elapsed,
+      format_size(size)
     ));
 
     return Ok(response);
@@ -183,8 +222,6 @@ pub async fn handle(
     && let Some(name) = TypeScriptTransformer::helper_module_name(req.uri().path())
     && let Some(source) = TypeScriptTransformer::helper_module_source(name)
   {
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
-
     return Ok(
       res
         .header(
@@ -199,7 +236,6 @@ pub async fn handle(
   // hyper handles preventing access to parent directories via "../../"
   // but this is an extra layer of protection
   if !file_path.normalize().starts_with(&config.serve_dir_abs) {
-    logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
     return Ok(res.status(403).body_from("Not allowed")?);
   }
 
@@ -208,8 +244,6 @@ pub async fn handle(
     && config.source_maps
     && let Some(map) = transpile_source_map(&config, &typescript_transformer, &req_path).await?
   {
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
-
     return Ok(
       res
         .header(
@@ -231,8 +265,6 @@ pub async fn handle(
       location.push('?');
       location.push_str(query);
     }
-
-    logger.println(format!("{} {}", "[301]".yellow().bold(), req.uri()));
 
     return Ok(res.header("Location", location).status(301).body_from("")?);
   }
@@ -289,7 +321,6 @@ pub async fn handle(
 
   // 404 if no file exists
   if !file_path.exists() {
-    logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
     return Ok(res.status(404).body_from("File not found")?);
   }
 
@@ -301,8 +332,6 @@ pub async fn handle(
 
   if config.transpile && (ext == "scss" || ext == "sass") {
     let css = scss_transformer.transpile(&file_path, &ext).await?;
-
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
     let content_type = format!("text/css; {}", DEFAULT_CHARSET_SUFFIX);
 
@@ -334,7 +363,6 @@ pub async fn handle(
       )
       .await?
     else {
-      logger.println(format!("{} {}", "[404]".red().bold(), req.uri()));
       return Ok(res.status(404).body_from("File not found")?);
     };
 
@@ -347,8 +375,6 @@ pub async fn handle(
       Some(_) => format!("{}\n//# sourceMappingURL={}.map\n", result.code, map_name),
       None => result.code,
     };
-
-    logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
 
     let content_type = format!("application/javascript; {}", DEFAULT_CHARSET_SUFFIX);
 
@@ -410,8 +436,6 @@ pub async fn handle(
   #[cfg(windows)]
   let content_length = file.metadata().await?.file_size();
 
-  logger.println(format!("{} {}", "[200]".green().bold(), req.uri()));
-
   // Read file
   // Stream file if it's larger than 5mb
   if !mime.starts_with("text/html") && content_length > 500_000 {
@@ -471,6 +495,39 @@ pub async fn handle(
     Ok(res.status(200).body_from(compress::brotli(&contents))?)
   } else {
     Ok(res.status(200).body_from(contents)?)
+  }
+}
+
+fn format_elapsed(elapsed: std::time::Duration) -> String {
+  let micros = elapsed.as_micros();
+
+  if micros < 1_000 {
+    format!("{}us", micros)
+  } else {
+    format!("{:.2}ms", elapsed.as_secs_f64() * 1000.0)
+  }
+}
+
+fn format_size(size: u64) -> String {
+  const KB: u64 = 1024;
+  const MB: u64 = 1024 * 1024;
+
+  if size < KB {
+    format!("{}B", size)
+  } else if size < MB {
+    format!("{:.1}KB", size as f64 / KB as f64)
+  } else {
+    format!("{:.1}MB", size as f64 / MB as f64)
+  }
+}
+
+fn status_color(status: hyper::StatusCode) -> colored::Color {
+  if status.is_server_error() {
+    colored::Color::Red
+  } else if status.is_client_error() {
+    colored::Color::Yellow
+  } else {
+    colored::Color::Green
   }
 }
 
