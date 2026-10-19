@@ -83,7 +83,7 @@ pub async fn handle(
       return Ok(res.status(403).body_from("")?);
     };
 
-    if creds != password {
+    if !constant_time_eq(creds.as_bytes(), password.as_bytes()) {
       return Ok(res.status(403).body_from("")?);
     }
   }
@@ -472,6 +472,13 @@ pub async fn handle(
   } else {
     Ok(res.status(200).body_from(contents)?)
   }
+}
+
+fn constant_time_eq(
+  a: &[u8],
+  b: &[u8],
+) -> bool {
+  a.len() == b.len() && subtle::ConstantTimeEq::ct_eq(a, b).into()
 }
 
 /// Resolve a `.map` request to the source map of the transpiled file it names.
