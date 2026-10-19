@@ -11,6 +11,7 @@ use grass::OutputStyle;
 
 use self::config::Config;
 use self::handler::ServeState;
+use crate::platform::compress::Compressor;
 use crate::platform::http1::http1_server;
 use crate::platform::ip_address;
 use crate::platform::ip_address::DomainOptions;
@@ -47,6 +48,14 @@ pub struct ServeCommand {
   /// Compress responses (JIT)
   #[arg(short = 'Z', long = "compress")]
   pub compress: bool,
+
+  /// Brotli compression level used for JIT compression (0-11)
+  #[arg(
+    long = "compress-level",
+    default_value = "11",
+    value_parser = clap::value_parser!(u32).range(0..=11)
+  )]
+  pub compress_level: u32,
 
   /// Custom headers (Format "key:value")
   #[arg(short = 'H', long = "header")]
@@ -147,14 +156,21 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
   logger.br();
 
   logger.print_folder(&config.serve_dir_fmt);
-  logger.print_config("Directory Listings", &true);
-  logger.print_config("Compress (JIT)", &config.compress);
-  logger.print_config("CORS", &config.cors);
-  logger.print_config("SharedArrayBuffer", &config.sab);
-  logger.print_config("SPA", &config.spa);
-  logger.print_config("Watch", &config.watch);
-  logger.print_config("Transpile", &config.transpile);
-  logger.print_config("Source Maps", &config.source_maps);
+  logger.print_config("Directory Listings", true);
+  logger.print_config("Compress (JIT)", config.compress);
+  if config.compress {
+    logger.println(format!(
+      "🔧 {:<19} {}",
+      "Compress Level:".bold(),
+      config.compress_level
+    ));
+  }
+  logger.print_config("CORS", config.cors);
+  logger.print_config("SharedArrayBuffer", config.sab);
+  logger.print_config("SPA", config.spa);
+  logger.print_config("Watch", config.watch);
+  logger.print_config("Transpile", config.transpile);
+  logger.print_config("Source Maps", config.source_maps);
   logger.br();
 
   if !config.proxy.is_empty() {
@@ -212,8 +228,22 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     })
     .max(1);
 
+  let compressor = Arc::new(Compressor::new(config.compress_level));
+
+  if let Some(watcher) = watcher.as_ref() {
+    let mut rx = watcher.subscribe();
+    let compressor = compressor.clone();
+
+    tokio::spawn(async move {
+      while rx.changed().await.is_ok() {
+        compressor.clear();
+      }
+    });
+  }
+
   let state = Arc::new(ServeState {
     config: config.clone(),
+    compressor,
     logger: logger.clone(),
     watcher,
     proxy_client,
