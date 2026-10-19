@@ -49,7 +49,7 @@ pub async fn handle(
   req: Request<Incoming>,
   res: ResponseBuilder,
   state: Arc<ServeState>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let started = Instant::now();
   let logger = state.logger.clone();
   let uri = req.uri().clone();
