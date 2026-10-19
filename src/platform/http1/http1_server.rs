@@ -59,7 +59,8 @@ where
 }
 
 fn handle_error(error: anyhow::Error) -> Response<BoxBody<HyperBytes, Infallible>> {
-  let content = HyperBytes::from(format!("{}", error));
+  eprintln!("[500] {error:#}");
+  let content = HyperBytes::from("Internal Server Error");
   let body = BoxBody::new(Full::new(content));
   let response = Response::builder().status(500).body(body);
 
