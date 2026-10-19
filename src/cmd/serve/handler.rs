@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
@@ -47,7 +46,7 @@ pub async fn handle(
   req: Request<Incoming>,
   mut res: ResponseBuilder,
   state: Arc<ServeState>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let config = state.config.clone();
   let logger = state.logger.clone();
   let watcher = state.watcher.clone();
