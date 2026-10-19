@@ -59,7 +59,8 @@ where
 }
 
 fn handle_error(error: anyhow::Error) -> Response<BoxBody<HyperBytes, std::io::Error>> {
-  let content = HyperBytes::from(format!("{}", error));
+  eprintln!("[500] {error:#}");
+  let content = HyperBytes::from("Internal Server Error");
   let body = Full::new(content).map_err(std::io::Error::other).boxed();
   match Response::builder().status(500).body(body) {
     Ok(response) => response,
