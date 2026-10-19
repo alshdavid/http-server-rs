@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 #[cfg(windows)]
@@ -36,6 +35,7 @@ use crate::platform::watcher::Watcher;
 
 pub struct ServeState {
   pub config: Arc<Config>,
+  pub serve_dir_canonical: PathBuf,
   pub logger: Arc<Logger>,
   pub watcher: Option<Watcher>,
   pub proxy_client: Option<Arc<ProxyClient>>,
@@ -47,7 +47,7 @@ pub async fn handle(
   req: Request<Incoming>,
   mut res: ResponseBuilder,
   state: Arc<ServeState>,
-) -> anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>> {
+) -> anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>> {
   let config = state.config.clone();
   let logger = state.logger.clone();
   let watcher = state.watcher.clone();
@@ -166,7 +166,7 @@ pub async fn handle(
           "data:{}\n\n",
           rx.borrow_and_update()
             .iter()
-            .map(|v| v.to_str().unwrap().to_string())
+            .map(|v| v.to_string_lossy().to_string())
             .collect::<Vec<String>>()
             .join(",")
         );
@@ -199,6 +199,14 @@ pub async fn handle(
   // hyper handles preventing access to parent directories via "../../"
   // but this is an extra layer of protection
   if !file_path.normalize().starts_with(&config.serve_dir_abs) {
+    logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+    return Ok(res.status(403).body_from("Not allowed")?);
+  }
+
+  // Canonicalize so symlinks can't point outside the served directory
+  if let Some(canonical) = file_path.canonicalize().ok()
+    && !canonical.starts_with(&state.serve_dir_canonical)
+  {
     logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
     return Ok(res.status(403).body_from("Not allowed")?);
   }
@@ -240,6 +248,13 @@ pub async fn handle(
   // Try to serve index.html
   if file_path.is_dir() && file_path.join("index.html").exists() {
     file_path = file_path.join("index.html");
+
+    if let Some(canonical) = file_path.canonicalize().ok()
+      && !canonical.starts_with(&state.serve_dir_canonical)
+    {
+      logger.println(format!("{} {}", "[403]".red().bold(), req.uri()));
+      return Ok(res.status(403).body_from("Not allowed")?);
+    }
   }
 
   // Apply custom headers
@@ -391,8 +406,11 @@ pub async fn handle(
 
   // If a .br or .gz file is found next to the target, serve that file
   if !config.compress {
-    let brotli_path = PathBuf::from(format!("{}.br", file_path.to_str().unwrap()));
-    let gzip_path = PathBuf::from(format!("{}.gz", file_path.to_str().unwrap()));
+    let Some(file_path_str) = file_path.to_str() else {
+      return Ok(res.status(404).body_from("File not found")?);
+    };
+    let brotli_path = PathBuf::from(format!("{}.br", file_path_str));
+    let gzip_path = PathBuf::from(format!("{}.gz", file_path_str));
 
     if brotli_path.exists() {
       file_path = brotli_path;

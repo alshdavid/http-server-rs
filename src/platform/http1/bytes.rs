@@ -1,6 +1,6 @@
 use std::borrow::Cow;
-use std::convert::Infallible;
 
+use http_body_util::BodyExt;
 use http_body_util::Full;
 use http_body_util::combinators::BoxBody;
 use hyper::body::Bytes as HyperBytes;
@@ -43,8 +43,10 @@ impl From<Bytes> for Full<HyperBytes> {
   }
 }
 
-impl From<Bytes> for BoxBody<HyperBytes, Infallible> {
+impl From<Bytes> for BoxBody<HyperBytes, std::io::Error> {
   fn from(val: Bytes) -> Self {
-    BoxBody::new(Full::new(HyperBytes::from(val.0)))
+    Full::new(HyperBytes::from(val.0))
+      .map_err(std::io::Error::other)
+      .boxed()
   }
 }

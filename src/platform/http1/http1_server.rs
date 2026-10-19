@@ -1,7 +1,7 @@
-use std::convert::Infallible;
 use std::future::Future;
 use std::sync::Arc;
 
+use http_body_util::BodyExt;
 use http_body_util::Full;
 use http_body_util::combinators::BoxBody;
 use hyper::Request;
@@ -23,7 +23,7 @@ pub async fn http1_server<F, Fut, A>(
 where
   A: ToSocketAddrs,
   F: 'static + Send + Sync + Fn(Request<Incoming>, ResponseBuilder) -> Fut,
-  Fut: Send + Future<Output = anyhow::Result<Response<BoxBody<HyperBytes, Infallible>>>>,
+  Fut: Send + Future<Output = anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>>>,
 {
   let listener = TcpListener::bind(&addr).await?;
   let handler_func_ref = Arc::new(handle_func);
@@ -46,7 +46,7 @@ where
             Err(handler_error) => handle_error(handler_error),
           };
 
-          Ok::<Response<BoxBody<HyperBytes, Infallible>>, anyhow::Error>(handler_response)
+          Ok::<Response<BoxBody<HyperBytes, std::io::Error>>, anyhow::Error>(handler_response)
         }
       });
 
@@ -58,12 +58,15 @@ where
   }
 }
 
-fn handle_error(error: anyhow::Error) -> Response<BoxBody<HyperBytes, Infallible>> {
+fn handle_error(error: anyhow::Error) -> Response<BoxBody<HyperBytes, std::io::Error>> {
   let content = HyperBytes::from(format!("{}", error));
-  let body = BoxBody::new(Full::new(content));
-  let response = Response::builder().status(500).body(body);
-
-  let Ok(response) = response else { todo!() };
-
-  response
+  let body = Full::new(content).map_err(std::io::Error::other).boxed();
+  match Response::builder().status(500).body(body) {
+    Ok(response) => response,
+    Err(_) => Response::new(
+      Full::new(HyperBytes::from_static(b"Internal Server Error"))
+        .map_err(std::io::Error::other)
+        .boxed(),
+    ),
+  }
 }
