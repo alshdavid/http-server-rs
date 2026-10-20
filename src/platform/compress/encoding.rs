@@ -18,20 +18,24 @@ impl Encoding {
 pub fn negotiate(accept_encoding: Option<&str>) -> Option<Encoding> {
   let header = accept_encoding?;
 
-  [Encoding::Brotli, Encoding::Gzip]
-    .into_iter()
-    .filter_map(|encoding| {
-      let quality = quality(header, encoding.name())?;
-      (quality > 0.0).then_some((encoding, quality))
-    })
-    .fold(
-      None,
-      |best: Option<(Encoding, f32)>, candidate| match best {
-        Some((_, quality)) if quality >= candidate.1 => best,
-        _ => Some(candidate),
-      },
-    )
-    .map(|(encoding, _)| encoding)
+  let mut best: Option<(Encoding, f32)> = None;
+
+  for encoding in [Encoding::Brotli, Encoding::Gzip] {
+    let Some(quality) = quality(header, encoding.name()) else {
+      continue;
+    };
+
+    if quality <= 0.0 {
+      continue;
+    }
+
+    match best {
+      Some((_, best_quality)) if best_quality >= quality => {}
+      _ => best = Some((encoding, quality)),
+    }
+  }
+
+  best.map(|(encoding, _)| encoding)
 }
 
 fn quality(
