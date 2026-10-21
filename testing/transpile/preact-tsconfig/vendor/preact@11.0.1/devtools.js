@@ -1,0 +1,1 @@
+import{options as n,Component as t,Fragment as _}from"./index.js";var o;function d(a,e){return n.__a&&n.__a(e),a}(o=typeof globalThis<"u"?globalThis:typeof window<"u"?window:void 0)!=null&&o.__PREACT_DEVTOOLS__&&o.__PREACT_DEVTOOLS__.attachPreact("11.0.1",n,{Fragment:_,Component:t});export{d as addHookName};

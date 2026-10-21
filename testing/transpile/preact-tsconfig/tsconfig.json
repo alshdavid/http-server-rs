@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+        "lib": [
+            "DOM",
+            "ESNext"
+        ],
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "types": [],
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        "jsx": "react",
+        "jsxFactory": "h",
+        "paths": {
+            "preact": [
+                "./vendor/preact@11.0.1/index.d.ts"
+            ],
+            "preact/hooks": [
+                "./vendor/preact@11.0.1/hooks.d.ts"
+            ],
+            "preact/jsx-runtime": [
+                "./vendor/preact@11.0.1/jsx-runtime.d.ts"
+            ],
+            "preact/compat": [
+                "./vendor/preact@11.0.1/compat.d.ts"
+            ],
+            "preact/devtools": [
+                "./vendor/preact@11.0.1/devtools.d.ts"
+            ],
+            "rx": [
+                "./vendor/rx@0.0.3/index.d.ts"
+            ]
+        }
+    },
+}
