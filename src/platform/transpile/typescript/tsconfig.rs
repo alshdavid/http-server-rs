@@ -189,9 +189,7 @@ fn load_chain(
   visited.push(canonical.clone());
 
   let contents = fs::read_to_string(path).ok()?;
-  let raw: RawTsConfig = jsonc_parser::parse_to_serde_value(&contents, &Default::default())
-    .ok()?
-    .and_then(|value| serde_json::from_value(value).ok())?;
+  let raw: RawTsConfig = jsonc_parser::parse_to_serde_value(&contents, &Default::default()).ok()?;
 
   let mut options = HashMap::new();
 
