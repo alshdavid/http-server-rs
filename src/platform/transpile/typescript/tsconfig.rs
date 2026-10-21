@@ -189,7 +189,9 @@ fn load_chain(
   visited.push(canonical.clone());
 
   let contents = fs::read_to_string(path).ok()?;
-  let raw: RawTsConfig = serde_json::from_str(&contents).ok()?;
+  let raw: RawTsConfig = jsonc_parser::parse_to_serde_value(&contents, &Default::default())
+    .ok()?
+    .and_then(|value| serde_json::from_value(value).ok())?;
 
   let mut options = HashMap::new();
 
@@ -395,6 +397,29 @@ mod tests {
     }
     let mut file = fs::File::create(path).unwrap();
     file.write_all(contents.as_bytes()).unwrap();
+  }
+
+  #[test]
+  fn loads_jsonc_with_comments_and_trailing_commas() {
+    let dir = temp_dir("jsonc");
+    let path = dir.join("tsconfig.json");
+
+    write(
+      &path,
+      r#"{
+        // The classic runtime, as Preact prefers
+        "compilerOptions": {
+          "jsx": "react",
+          "jsxFactory": "h", /* keep */
+          "jsxFragmentFactory": "Fragment",
+        },
+      }"#,
+    );
+
+    let config = load_tsconfig(&path).unwrap();
+    assert_eq!(config.jsx, Some(JsxMode::React));
+    assert_eq!(config.jsx_factory.as_deref(), Some("h"));
+    assert_eq!(config.jsx_fragment_factory.as_deref(), Some("Fragment"));
   }
 
   #[test]
