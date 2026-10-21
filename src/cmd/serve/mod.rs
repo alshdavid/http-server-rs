@@ -11,6 +11,7 @@ use grass::OutputStyle;
 
 use self::config::Config;
 use self::handler::ServeState;
+use crate::platform::http1::ShutdownSignal;
 use crate::platform::http1::http1_server;
 use crate::platform::ip_address;
 use crate::platform::ip_address::DomainOptions;
@@ -233,15 +234,14 @@ pub async fn main(args: ServeCommand) -> anyhow::Result<()> {
     )),
   });
 
-  http1_server(&config.domain, shutdown_signal(), {
+  http1_server(&config.domain, shutdown_signal(), ShutdownSignal::new(), {
     let state = state.clone();
 
-    move |req, res| {
+    move |req, res, shutdown_signal| {
       let state = state.clone();
-      handler::handle(req, res, state)
+      handler::handle(req, res, state, shutdown_signal)
     }
   })
   .await?;
-
   Ok(())
 }

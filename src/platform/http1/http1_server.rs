@@ -18,6 +18,8 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::net::ToSocketAddrs;
 
+use super::ShutdownSignal;
+
 /// Simple wrapper around hyper to make it a little nicer to use.
 ///
 /// The returned future resolves once the listener stops and every in-flight
@@ -25,11 +27,12 @@ use tokio::net::ToSocketAddrs;
 pub async fn http1_server<F, Fut, A>(
   addr: A,
   shutdown: impl Future<Output = ()>,
+  shutdown_signal: ShutdownSignal,
   handle_func: F,
 ) -> anyhow::Result<()>
 where
   A: ToSocketAddrs,
-  F: 'static + Send + Sync + Fn(Request<Incoming>, ResponseBuilder) -> Fut,
+  F: 'static + Send + Sync + Fn(Request<Incoming>, ResponseBuilder, ShutdownSignal) -> Fut,
   Fut: Send + Future<Output = anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>>>,
 {
   let listener = TcpListener::bind(&addr).await?;
@@ -40,10 +43,13 @@ where
   loop {
     tokio::select! {
       _ = &mut shutdown => break,
-      accepted = listener.accept() => handle_accepted(accepted, &handler_func_ref, &graceful),
+      accepted = listener.accept() => {
+        handle_accepted(accepted, &handler_func_ref, &graceful, &shutdown_signal)
+      },
     }
   }
 
+  shutdown_signal.trigger();
   graceful.shutdown().await;
 
   Ok(())
@@ -53,8 +59,9 @@ fn handle_accepted<F, Fut>(
   accepted: std::io::Result<(TcpStream, SocketAddr)>,
   handler_func_ref: &Arc<F>,
   graceful: &GracefulShutdown,
+  shutdown_signal: &ShutdownSignal,
 ) where
-  F: 'static + Send + Sync + Fn(Request<Incoming>, ResponseBuilder) -> Fut,
+  F: 'static + Send + Sync + Fn(Request<Incoming>, ResponseBuilder, ShutdownSignal) -> Fut,
   Fut: Send + Future<Output = anyhow::Result<Response<BoxBody<HyperBytes, std::io::Error>>>>,
 {
   let Ok((stream, _)) = accepted else {
@@ -62,9 +69,10 @@ fn handle_accepted<F, Fut>(
   };
   let io = TokioIo::new(stream);
   let handler_func_ref = handler_func_ref.clone();
+  let shutdown_signal = shutdown_signal.clone();
 
   let service_handler = service_fn(move |req| {
-    let fut = handler_func_ref(req, Response::builder());
+    let fut = handler_func_ref(req, Response::builder(), shutdown_signal.clone());
 
     async move {
       let handler_response = match fut.await {
