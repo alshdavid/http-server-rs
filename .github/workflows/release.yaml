@@ -226,7 +226,7 @@ jobs:
           retention-days: 1
 
   publish_github_release:
-    name: "🔄 Publish Github Release"
+    name: "🐱‍👤 Publish Github Release"
     runs-on: ubuntu-24.04
     needs:
       - build_linux_amd64
@@ -301,7 +301,7 @@ jobs:
             -d "$payload" || true
 
   publish_crates_io:
-    name: "🔁 Publish: Crate"
+    name: "🦀 Publish: Crate"
     runs-on: ubuntu-latest
     needs:
       - version
