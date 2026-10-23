@@ -26,8 +26,14 @@ jobs:
         run: |
           set -ex
           GITHUB_URL="https://api.github.com/repos/${{ github.repository }}"
-          LAST_VERSION=$(curl -sSL "$GITHUB_URL/releases/latest" | jq -r ".tag_name" | cut -d "." -f 3)
+          LAST_VERSION=$(curl -sSL "$GITHUB_URL/releases/latest" | jq -r ".tag_name")
+          
           if [ "$LAST_VERSION" = "" ]; then
+            # Must have at least one version
+            echo "Version Missing"
+            exit 1
+          fi
+          if [ "$LAST_VERSION" = "null" ]; then
             # Must have at least one version
             echo "Version Missing"
             exit 1
@@ -94,7 +100,6 @@ jobs:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-      - uses: Swatinem/rust-cache@v2
         with: { key: "x86_64-unknown-linux-musl" }
       - run: sudo apt-get update
       - run: sudo apt-get install -y musl-tools
@@ -124,7 +129,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      - uses: Swatinem/rust-cache@v2
       - uses: Swatinem/rust-cache@v2
         with: { key: "aarch64-unknown-linux-musl" }
       - run: sudo apt-get update
@@ -156,7 +160,6 @@ jobs:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-      - uses: Swatinem/rust-cache@v2
         with: { key: "aarch64-apple-darwin" }
       - run: rustup target add aarch64-apple-darwin
       - run: sed "s/0.0.0-local/${VERSION}/g" "Cargo.toml" > "Cargo.toml.new" && mv "Cargo.toml.new" "Cargo.toml"
@@ -185,7 +188,6 @@ jobs:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-      - uses: Swatinem/rust-cache@v2
         with: { key: "x86_64-pc-windows-msvc" }
       - run: rustup target add x86_64-pc-windows-msvc
       - run: sed "s/0.0.0-local/${VERSION}/g" "Cargo.toml" > "Cargo.toml.new" && mv "Cargo.toml.new" "Cargo.toml"
@@ -213,7 +215,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      - uses: Swatinem/rust-cache@v2
       - uses: Swatinem/rust-cache@v2
         with: { key: "aarch64-pc-windows-msvc" }
       - run: rustup target add aarch64-pc-windows-msvc
