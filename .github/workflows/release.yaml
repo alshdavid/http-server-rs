@@ -47,42 +47,46 @@ jobs:
           echo "GITHUB_REPOSITORY_NAME=$GITHUB_REPOSITORY_NAME" >> "$GITHUB_OUTPUT"
           echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY" >> "$GITHUB_OUTPUT"
 
-  # test:
-  #   name: 🧪 Test
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #     - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-  #     - uses: Swatinem/rust-cache@v2
-  #     - run: cargo test
+  test:
+    name: 🧪 Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
 
-  # format:
-  #   name: 📝 Format
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #     - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-  #     - uses: Swatinem/rust-cache@v2
-  #     - run: cargo install cargo-xfmt
-  #     - run: cargo xfmt --check
+  format:
+    name: 📝 Format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-xfmt
+      - run: cargo xfmt --check
 
-  # lint:
-  #   name: 🤓 Lint
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #     - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-  #     - uses: Swatinem/rust-cache@v2
-  #     - run: cargo clippy --all-targets --workspace -- -D warnings
+  lint:
+    name: 🤓 Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --workspace -- -D warnings
 
+  # Due to platform differences I have opted out of using a matrix.
+  # Examples;
+  #   - Windows executables have different names
+  #   - Linux glibc builds require containers (not used here but I use this as a template)
   build_linux_amd64:
     name: 🐥 Linux AMD64
     runs-on: ubuntu-latest
     needs:
       - version
-      # - format
-      # - lint
-      # - test
+      - format
+      - lint
+      - test
     env:
       VERSION: ${{needs.version.outputs.VERSION}}
       GITHUB_REPOSITORY_NAME: ${{needs.version.outputs.GITHUB_REPOSITORY_NAME}}
@@ -111,9 +115,9 @@ jobs:
     runs-on: ubuntu-26.04-arm
     needs:
       - version
-      # - format
-      # - lint
-      # - test
+      - format
+      - lint
+      - test
     env:
       VERSION: ${{needs.version.outputs.VERSION}}
       GITHUB_REPOSITORY_NAME: ${{needs.version.outputs.GITHUB_REPOSITORY_NAME}}
@@ -142,9 +146,9 @@ jobs:
     runs-on: macos-latest
     needs:
       - version
-      # - format
-      # - lint
-      # - test
+      - format
+      - lint
+      - test
     env:
       VERSION: ${{needs.version.outputs.VERSION}}
       GITHUB_REPOSITORY_NAME: ${{needs.version.outputs.GITHUB_REPOSITORY_NAME}}
@@ -171,9 +175,9 @@ jobs:
     runs-on: windows-latest
     needs:
       - version
-      # - format
-      # - lint
-      # - test
+      - format
+      - lint
+      - test
     env:
       VERSION: ${{needs.version.outputs.VERSION}}
       GITHUB_REPOSITORY_NAME: ${{needs.version.outputs.GITHUB_REPOSITORY_NAME}}
@@ -200,9 +204,9 @@ jobs:
     runs-on: windows-latest
     needs:
       - version
-      # - format
-      # - lint
-      # - test
+      - format
+      - lint
+      - test
     env:
       VERSION: ${{needs.version.outputs.VERSION}}
       GITHUB_REPOSITORY_NAME: ${{needs.version.outputs.GITHUB_REPOSITORY_NAME}}
@@ -224,118 +228,60 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # build:
-  #   strategy:
-  #     matrix:
-  #       config:
+  publish_github_release:
+    name: "🔄 Publish Github Release"
+    runs-on: ubuntu-24.04
+    needs:
+      - build_linux_amd64
+      - build_linux_arm64
+      - build_macos_arm64
+      - build_windows_amd64
+      - build_windows_arm64
+      - version
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish` Github Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{needs.version.outputs.VERSION}}
+        run: |
+          set -ex
 
-  #         - name: 🟦 Windows AMD64
-  #           runner: windows-latest
-  #           os: windows
-  #           arch: amd64
-  #           target: x86_64-pc-windows-msvc
-  #           run: rustup target add x86_64-pc-windows-msvc
+          echo "Tag: ${VERSION}"
 
-  #         - name: 🟦 Windows ARM64
-  #           runner: windows-latest
-  #           os: windows
-  #           arch: arm64
-  #           target: aarch64-pc-windows-msvc
-  #           run: rustup target add aarch64-pc-windows-msvc
+          gh release delete "$VERSION" --yes --cleanup-tag 2>/dev/null || true
+          gh release create $VERSION --draft --notes "Automatically built binaries"
+          gh release edit "$VERSION" --title "v${VERSION}"
 
-  #   name: ${{ matrix.config.name }}
-  #   runs-on: ${{ matrix.config.runner }}
-  #   needs:
-  #     - version
-  #     - format
-  #     - lint
-  #     - test
-  #   env:
-  #     VERSION: ${{needs.version.outputs.VERSION}}
-  #     GITHUB_REPOSITORY_NAME: ${{needs.version.outputs.GITHUB_REPOSITORY_NAME}}
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #     - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-  #     - uses: Swatinem/rust-cache@v2
-  #       with:
-  #         key: ${{ matrix.config.target }}
-  #     - if: matrix.config.run
-  #       run: ${{ matrix.config.run }}
-  #       run: sed "s/0.0.0-local/${VERSION}/g" "Cargo.toml" > "Cargo.toml.new" && mv "Cargo.toml.new" "Cargo.toml"
-  #     - env:
-  #         os: "${{ matrix.config.os }}"
-  #         arch: "${{ matrix.config.arch }}"
-  #         profile: "release"
-  #       run: cargo build --target ${{ matrix.config.target }} --release
+          cd artifacts
+          ls -la
 
-  #     - run: |
-  #         mkdir -p artifacts/${GITHUB_REPOSITORY_NAME}-${{ matrix.config.os }}-${{ matrix.config.arch }}
-  #         ls -l 
-  #         ls -l target
-  #         ls -l target/${{ matrix.config.target }}
-  #         ls -l target/${{ matrix.config.target }}/release
+          for name in *; do
+            echo $name
 
-  #     - env:
-  #         EXE: ${{ runner.os == 'Windows' && '.exe' || '' }}
-  #       run: cp target/${{ matrix.config.target }}/release/${GITHUB_REPOSITORY_NAME}$EXE ./artifacts/${GITHUB_REPOSITORY_NAME}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+            cd $name
+            chmod +x ./*
 
-  #     - uses: actions/upload-artifact@v7
-  #       with:
-  #         name: ${{ env.GITHUB_REPOSITORY_NAME }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
-  #         path: ${{ github.workspace }}/artifacts/**/*
-  #         if-no-files-found: error
-  #         retention-days: 1
+            tar -czf ./$name.tar.gz ./*
+            gh release upload $VERSION ${name}.tar.gz
+            rm -rf ./*.tar.gz
 
-  # publish_github_release:
-  #   name: "🔄 Publish Github Release"
-  #   runs-on: ubuntu-24.04
-  #   needs:
-  #     - build
-  #     - version
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #     - uses: actions/download-artifact@v8
-  #       with:
-  #         path: artifacts
-  #         merge-multiple: true
-  #     - name: Publish` Github Release
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #         VERSION: ${{needs.version.outputs.VERSION}}
-  #       run: |
-  #         set -ex
+            tar -cJf ./$name.tar.xz ./*
+            gh release upload $VERSION ${name}.tar.xz
+            rm -rf ./*.tar.xz
 
-  #         echo "Tag: ${VERSION}"
+            zip ./$name.zip ./*
+            gh release upload $VERSION ${name}.zip
+            rm -rf ./*.zip
 
-  #         gh release delete "$VERSION" --yes --cleanup-tag 2>/dev/null || true
-  #         gh release create $VERSION --draft --notes "Automatically built binaries"
-  #         gh release edit "$VERSION" --title "v${VERSION}"
+            cd ..
+          done
 
-  #         cd artifacts
-  #         ls -la
-
-  #         for name in *; do
-  #           echo $name
-
-  #           cd $name
-  #           chmod +x ./*
-
-  #           tar -czf ./$name.tar.gz ./*
-  #           gh release upload $VERSION ${name}.tar.gz
-  #           rm -rf ./*.tar.gz
-
-  #           tar -cJf ./$name.tar.xz ./*
-  #           gh release upload $VERSION ${name}.tar.xz
-  #           rm -rf ./*.tar.xz
-
-  #           zip ./$name.zip ./*
-  #           gh release upload $VERSION ${name}.zip
-  #           rm -rf ./*.zip
-
-  #           cd ..
-  #         done
-
-  #         gh release edit $VERSION --draft=false
+          gh release edit $VERSION --draft=false
 
   # changelog:
   #   name: "📝 Generate Changelog"
