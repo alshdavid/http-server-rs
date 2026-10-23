@@ -207,6 +207,17 @@ jobs:
 
           gh release edit $VERSION --draft=false
 
+  changelog:
+    name: "🔁 Publish: Crate"
+    runs-on: ubuntu-latest
+    needs:
+      - version
+      - publish_github_release
+    steps:
+      - uses: actions/checkout@v7
+      - env:
+          VERSION: ${{needs.version.outputs.VERSION}}
+        run: |
           payload="$(jq -n \
             --arg repository "$GITHUB_REPOSITORY" \
             --arg version "$VERSION" \
@@ -221,7 +232,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - version
-      - build
+      - publish_github_release
     steps:
       - uses: actions/checkout@v7
       - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && echo "$HOME/.cargo/bin" >> $GITHUB_PATH
@@ -239,7 +250,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - version
-      - build
+      - publish_github_release
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
