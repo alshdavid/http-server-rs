@@ -13,24 +13,22 @@ on:
     branches:
       - "main"
 
-env:
-  PROJECT_NAME: http-server-rs
-
 jobs:
   version:
     name: 🌐 Auto Version Increment
     runs-on: ubuntu-24.04
     outputs:
       VERSION: ${{ steps.generate.outputs.VERSION }}
+      GITHUB_REPOSITORY_NAME: ${{ steps.generate.outputs.GITHUB_REPOSITORY_NAME }}
+      GITHUB_REPOSITORY: ${{ steps.generate.outputs.GITHUB_REPOSITORY }}
     steps:
-      - uses: actions/checkout@v7
       - id: generate
         run: |
           set -ex
-          LAST_VERSION=$(curl -sSL https://api.github.com/repos/alshdavid/$PROJECT_NAME/releases/latest | jq -r ".tag_name" | cut -d "." -f 3)
+          GITHUB_URL="https://api.github.com/repos/${{ github.repository }}"
+          LAST_VERSION=$(curl -sSL "$GITHUB_URL/releases/latest" | jq -r ".tag_name" | cut -d "." -f 3)
           if [ "$LAST_VERSION" = "" ]; then
-            # Commenting out to protect against overriding on error
-            # LAST_VERSION="0"
+            # Must have at least one version
             echo "Version Missing"
             exit 1
           fi
@@ -39,8 +37,15 @@ jobs:
           var=$var+1
           VERSION="0.0.$var"
 
+          GITHUB_REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
+
           echo $VERSION
+          echo $GITHUB_REPOSITORY
+          echo $GITHUB_REPOSITORY_NAME
+
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "GITHUB_REPOSITORY_NAME=$GITHUB_REPOSITORY_NAME" >> "$GITHUB_OUTPUT"
+          echo "GITHUB_REPOSITORY=$GITHUB_REPOSITORY" >> "$GITHUB_OUTPUT"
 
   test:
     name: 🧪 Test
@@ -139,6 +144,7 @@ jobs:
         run: cargo build --target ${{ matrix.config.target }} --release
 
       - run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
           mkdir -p artifacts/${{ env.PROJECT_NAME }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           ls -l 
           ls -l target
